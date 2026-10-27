@@ -30,7 +30,11 @@ export async function loadActor(
     .from(orgMember)
     .where(and(eq(orgMember.orgId, orgId), eq(orgMember.userId, userId)));
   if (!member) {
-    [member] = await ctx.db.insert(orgMember).values({ orgId, userId, role: 'member' }).onConflictDoNothing().returning();
+    [member] = await ctx.db
+      .insert(orgMember)
+      .values({ orgId, userId, role: 'member' })
+      .onConflictDoNothing()
+      .returning();
     if (!member) return null;
   }
   const nsRows = await ctx.db

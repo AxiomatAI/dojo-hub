@@ -5,7 +5,24 @@ import { KeyRound, Plus, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '../components/shell';
-import { Avatar, Badge, Button, Card, CardHeader, CopyField, Dialog, Field, Input, PageHeader, Select, Table, TabPanel, Tabs, Td, Th } from '../components/ui';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  CopyField,
+  Dialog,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  Table,
+  TabPanel,
+  Tabs,
+  Td,
+  Th,
+} from '../components/ui';
 import { api } from '../lib/api';
 import { formatDate, relativeTime } from '../lib/format';
 import { useAction } from '../lib/hooks';
@@ -19,10 +36,18 @@ function Tokens() {
   const [scopes, setScopes] = useState<string[]>(['read', 'install', 'submit']);
   const [days, setDays] = useState('90');
   const [created, setCreated] = useState<string | null>(null);
-  const create = useAction(() => api.post<{ token: string }>('tokens', { name, scopes, expiresInDays: days === 'never' ? null : Number(days) }), {
-    invalidate: [['tokens']],
-    onSuccess: (r) => setCreated(r.token),
-  });
+  const create = useAction(
+    () =>
+      api.post<{ token: string }>('tokens', {
+        name,
+        scopes,
+        expiresInDays: days === 'never' ? null : Number(days),
+      }),
+    {
+      invalidate: [['tokens']],
+      onSuccess: (r) => setCreated(r.token),
+    },
+  );
   const revoke = useAction((id: string) => api.del(`tokens/${id}`), { invalidate: [['tokens']] });
   const allowed = PAT_SCOPES.filter((s) => s !== 'admin' || me.permissions.includes('org.admin'));
   return (
@@ -73,7 +98,9 @@ function Tokens() {
                 </div>
               </Td>
               <Td className="text-[12.5px] text-muted">{relativeTime(tk.lastUsedAt)}</Td>
-              <Td className="text-[12.5px] text-muted">{tk.expiresAt ? formatDate(tk.expiresAt) : t('settings.noExpiry')}</Td>
+              <Td className="text-[12.5px] text-muted">
+                {tk.expiresAt ? formatDate(tk.expiresAt) : t('settings.noExpiry')}
+              </Td>
               <Td className="text-right">
                 <Button size="sm" variant="ghost" onClick={() => revoke.mutate(tk.id)}>
                   {t('settings.revoke')}
@@ -91,7 +118,12 @@ function Tokens() {
           created ? (
             <Button onClick={() => setOpen(false)}>{t('common.done')}</Button>
           ) : (
-            <Button variant="primary" disabled={!name || !scopes.length} loading={create.isPending} onClick={() => create.mutate(undefined)}>
+            <Button
+              variant="primary"
+              disabled={!name || !scopes.length}
+              loading={create.isPending}
+              onClick={() => create.mutate(undefined)}
+            >
               {t('common.create')}
             </Button>
           )
@@ -105,7 +137,12 @@ function Tokens() {
         ) : (
           <div className="space-y-3">
             <Field label={t('common.name')}>
-              <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="CI pipeline" />
+              <Input
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="CI pipeline"
+              />
             </Field>
             <Field label={t('settings.scopes')}>
               <div className="flex flex-wrap gap-1.5">
@@ -113,7 +150,9 @@ function Tokens() {
                   <button
                     type="button"
                     key={s}
-                    onClick={() => setScopes((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]))}
+                    onClick={() =>
+                      setScopes((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]))
+                    }
                     className={`rounded-md border px-2 py-1 text-[12.5px] ${scopes.includes(s) ? 'border-accent bg-accent-soft text-accent' : 'border-border text-muted'}`}
                   >
                     {t(`settings.scope.${s}`)}
@@ -144,7 +183,10 @@ export function SettingsPage() {
   const search = useSearch({ from: '/app/settings' }) as { tab?: string };
   const navigate = useNavigate();
   const [name, setName] = useState(me.name);
-  const save = useAction(() => api.patch('me', { name }), { invalidate: [['me']], success: t('common.done') });
+  const save = useAction(() => api.patch('me', { name }), {
+    invalidate: [['me']],
+    success: t('common.done'),
+  });
   return (
     <div>
       <PageHeader icon={<Settings className="h-4 w-4" />} title={t('settings.title')} />

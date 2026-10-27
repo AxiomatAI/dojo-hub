@@ -1,4 +1,12 @@
-import type { InstallCommands, NamespaceDto, Paginated, PolicyDocument, SkillSummaryDto, SuiteDto, UserSummary } from '@dojohub/contract';
+import type {
+  InstallCommands,
+  NamespaceDto,
+  Paginated,
+  PolicyDocument,
+  SkillSummaryDto,
+  SuiteDto,
+  UserSummary,
+} from '@dojohub/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Boxes, Lock, Plus, Trash2, Users } from 'lucide-react';
@@ -7,12 +15,45 @@ import { useTranslation } from 'react-i18next';
 import { InstallPanel, SkillRow, StatusPill } from '../components/dojo';
 import { PolicyEditor } from '../components/policy-editor';
 import { isAdmin, useMe } from '../components/shell';
-import { Avatar, Badge, Button, Card, CardHeader, Dialog, EmptyState, Field, Input, PageHeader, Select, Skeleton, TabPanel, Tabs, Td, Th, Table, Textarea } from '../components/ui';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  Dialog,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  Skeleton,
+  Table,
+  TabPanel,
+  Tabs,
+  Td,
+  Textarea,
+  Th,
+} from '../components/ui';
 import { api } from '../lib/api';
 import { useAction } from '../lib/hooks';
 
 type TeamDetail = NamespaceDto & {
-  catalog: { id: string; level: string; pinnedVersion: string | null; note: string | null; skill: SkillSummaryDto | null; suite: { id: string; name: string; displayName: string; namespace: string; status: string; description: string } | null }[];
+  catalog: {
+    id: string;
+    level: string;
+    pinnedVersion: string | null;
+    note: string | null;
+    skill: SkillSummaryDto | null;
+    suite: {
+      id: string;
+      name: string;
+      displayName: string;
+      namespace: string;
+      status: string;
+      description: string;
+    } | null;
+  }[];
   install: InstallCommands;
   installableCount: number;
   canManage: boolean;
@@ -22,7 +63,13 @@ type TeamDetail = NamespaceDto & {
 function NewTeamDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ displayName: '', slug: '', description: '', visibility: 'internal', color: '#6366f1' });
+  const [form, setForm] = useState({
+    displayName: '',
+    slug: '',
+    description: '',
+    visibility: 'internal',
+    color: '#6366f1',
+  });
   const create = useAction(() => api.post<{ slug: string }>('namespaces', form), {
     invalidate: [['namespaces'], ['me']],
     onSuccess: (r) => {
@@ -36,7 +83,12 @@ function NewTeamDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       onOpenChange={onOpenChange}
       title={t('teams.new')}
       footer={
-        <Button variant="primary" loading={create.isPending} disabled={!form.displayName || !form.slug} onClick={() => create.mutate(undefined)}>
+        <Button
+          variant="primary"
+          loading={create.isPending}
+          disabled={!form.displayName || !form.slug}
+          onClick={() => create.mutate(undefined)}
+        >
           {t('common.create')}
         </Button>
       }
@@ -56,14 +108,25 @@ function NewTeamDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           />
         </Field>
         <Field label={t('teams.slug')} hint={t('teams.slugHint')}>
-          <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: slugify(e.target.value) })} className="font-mono" />
+          <Input
+            value={form.slug}
+            onChange={(e) => setForm({ ...form, slug: slugify(e.target.value) })}
+            className="font-mono"
+          />
         </Field>
         <Field label={t('common.description')}>
-          <Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <Textarea
+            rows={2}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
         </Field>
-        <div className="grid grid-cols-[1fr_90px] gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_90px] gap-3">
           <Field label="Visibility" hint={t(`visibility.help.${form.visibility}`)}>
-            <Select value={form.visibility} onChange={(e) => setForm({ ...form, visibility: e.target.value })}>
+            <Select
+              value={form.visibility}
+              onChange={(e) => setForm({ ...form, visibility: e.target.value })}
+            >
               {['internal', 'private', 'public'].map((v) => (
                 <option key={v} value={v}>
                   {t(`visibility.${v}`)}
@@ -72,7 +135,12 @@ function NewTeamDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             </Select>
           </Field>
           <Field label={t('teams.color')}>
-            <input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-8 w-full cursor-pointer rounded-md border border-border-strong bg-panel" />
+            <input
+              type="color"
+              value={form.color}
+              onChange={(e) => setForm({ ...form, color: e.target.value })}
+              className="h-8 w-full cursor-pointer rounded-md border border-border-strong bg-panel"
+            />
           </Field>
         </div>
       </div>
@@ -114,7 +182,10 @@ export function TeamsPage() {
           <Link key={n.id} to="/teams/$slug" params={{ slug: n.slug }} search={{ tab: undefined }}>
             <Card className="h-full p-4 transition-colors hover:border-border-strong">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg text-[13px] font-semibold text-white" style={{ background: n.color ?? 'var(--accent)' }}>
+                <span
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[13px] font-semibold text-white"
+                  style={{ background: n.color ?? 'var(--accent)' }}
+                >
                   {n.displayName.slice(0, 1).toUpperCase()}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -140,17 +211,45 @@ export function TeamsPage() {
   );
 }
 
-function AddCatalogDialog({ slug, open, onOpenChange }: { slug: string; open: boolean; onOpenChange: (v: boolean) => void }) {
+function AddCatalogDialog({
+  slug,
+  open,
+  onOpenChange,
+}: {
+  slug: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   const { t } = useTranslation();
   const [q, setQ] = useState('');
   const [level, setLevel] = useState('recommended');
-  const skills = useQuery({ queryKey: ['skills', 'picker', q], queryFn: () => api.get<Paginated<SkillSummaryDto>>(`skills?q=${encodeURIComponent(q)}&status=approved,deprecated&pageSize=10`), enabled: open });
-  const suites = useQuery({ queryKey: ['suites', 'picker', q], queryFn: () => api.get<SuiteDto[]>(`suites?q=${encodeURIComponent(q)}`), enabled: open });
-  const add = useAction((body: { skillId?: string; suiteId?: string }) => api.post(`namespaces/${slug}/catalog`, { ...body, level }), { invalidate: [['namespace', slug]], success: t('common.done') });
+  const skills = useQuery({
+    queryKey: ['skills', 'picker', q],
+    queryFn: () =>
+      api.get<Paginated<SkillSummaryDto>>(
+        `skills?q=${encodeURIComponent(q)}&status=approved,deprecated&pageSize=10`,
+      ),
+    enabled: open,
+  });
+  const suites = useQuery({
+    queryKey: ['suites', 'picker', q],
+    queryFn: () => api.get<SuiteDto[]>(`suites?q=${encodeURIComponent(q)}`),
+    enabled: open,
+  });
+  const add = useAction(
+    (body: { skillId?: string; suiteId?: string }) =>
+      api.post(`namespaces/${slug}/catalog`, { ...body, level }),
+    { invalidate: [['namespace', slug]], success: t('common.done') },
+  );
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={t('teams.addSkill')} wide>
       <div className="mb-3 flex gap-2">
-        <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('skills.searchPlaceholder')} />
+        <Input
+          autoFocus
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t('skills.searchPlaceholder')}
+        />
         <Select value={level} onChange={(e) => setLevel(e.target.value)} className="w-40">
           {['required', 'recommended', 'optional'].map((l) => (
             <option key={l} value={l}>
@@ -167,7 +266,11 @@ function AddCatalogDialog({ slug, open, onOpenChange }: { slug: string; open: bo
               <div className="truncate text-[13px] font-medium">{s.displayName}</div>
               <div className="truncate text-[12px] text-subtle">{s.description}</div>
             </div>
-            <Button size="sm" loading={add.isPending && add.variables?.suiteId === s.id} onClick={() => add.mutate({ suiteId: s.id })}>
+            <Button
+              size="sm"
+              loading={add.isPending && add.variables?.suiteId === s.id}
+              onClick={() => add.mutate({ suiteId: s.id })}
+            >
               {t('common.add')}
             </Button>
           </div>
@@ -180,7 +283,11 @@ function AddCatalogDialog({ slug, open, onOpenChange }: { slug: string; open: bo
               </div>
               <div className="truncate text-[12px] text-subtle">{s.summary}</div>
             </div>
-            <Button size="sm" loading={add.isPending && add.variables?.skillId === s.id} onClick={() => add.mutate({ skillId: s.id })}>
+            <Button
+              size="sm"
+              loading={add.isPending && add.variables?.skillId === s.id}
+              onClick={() => add.mutate({ skillId: s.id })}
+            >
               {t('common.add')}
             </Button>
           </div>
@@ -192,11 +299,26 @@ function AddCatalogDialog({ slug, open, onOpenChange }: { slug: string; open: bo
 
 function Members({ slug, canAdmin }: { slug: string; canAdmin: boolean }) {
   const { t } = useTranslation();
-  const members = useQuery({ queryKey: ['members', slug], queryFn: () => api.get<(UserSummary & { userId: string; role: string; managed: boolean })[]>(`namespaces/${slug}/members`) });
+  const members = useQuery({
+    queryKey: ['members', slug],
+    queryFn: () =>
+      api.get<(UserSummary & { userId: string; role: string; managed: boolean })[]>(
+        `namespaces/${slug}/members`,
+      ),
+  });
   const [q, setQ] = useState('');
-  const users = useQuery({ queryKey: ['users', q], queryFn: () => api.get<UserSummary[]>(`users?q=${encodeURIComponent(q)}`), enabled: canAdmin && q.length > 1 });
-  const setRole = useAction((b: { userId: string; role: string }) => api.post(`namespaces/${slug}/members`, b), { invalidate: [['members', slug]] });
-  const remove = useAction((userId: string) => api.del(`namespaces/${slug}/members/${userId}`), { invalidate: [['members', slug]] });
+  const users = useQuery({
+    queryKey: ['users', q],
+    queryFn: () => api.get<UserSummary[]>(`users?q=${encodeURIComponent(q)}`),
+    enabled: canAdmin && q.length > 1,
+  });
+  const setRole = useAction(
+    (b: { userId: string; role: string }) => api.post(`namespaces/${slug}/members`, b),
+    { invalidate: [['members', slug]] },
+  );
+  const remove = useAction((userId: string) => api.del(`namespaces/${slug}/members/${userId}`), {
+    invalidate: [['members', slug]],
+  });
   return (
     <Card>
       <CardHeader
@@ -204,7 +326,12 @@ function Members({ slug, canAdmin }: { slug: string; canAdmin: boolean }) {
         actions={
           canAdmin && (
             <div className="relative">
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('teams.addMember')} className="w-56" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={t('teams.addMember')}
+                className="w-56"
+              />
               {!!users.data?.length && (
                 <div className="absolute right-0 z-10 mt-1 w-72 rounded-lg border border-border bg-panel p-1 shadow-float">
                   {users.data.map((u) => (
@@ -241,7 +368,10 @@ function Members({ slug, canAdmin }: { slug: string; canAdmin: boolean }) {
               </Td>
               <Td className="w-48">
                 {canAdmin && !m.managed ? (
-                  <Select value={m.role} onChange={(e) => setRole.mutate({ userId: m.userId, role: e.target.value })}>
+                  <Select
+                    value={m.role}
+                    onChange={(e) => setRole.mutate({ userId: m.userId, role: e.target.value })}
+                  >
                     {['owner', 'maintainer', 'reviewer', 'member'].map((r) => (
                       <option key={r} value={r}>
                         {t(`roles.${r}`)}
@@ -250,13 +380,19 @@ function Members({ slug, canAdmin }: { slug: string; canAdmin: boolean }) {
                   </Select>
                 ) : (
                   <span className="text-[12.5px]">
-                    {t(`roles.${m.role}`)} {m.managed && <Badge className="ml-1">{t('teams.managedByIdp')}</Badge>}
+                    {t(`roles.${m.role}`)}{' '}
+                    {m.managed && <Badge className="ml-1">{t('teams.managedByIdp')}</Badge>}
                   </span>
                 )}
               </Td>
               <Td className="w-10">
                 {canAdmin && !m.managed && (
-                  <Button variant="ghost" size="icon" aria-label={t('common.remove')} onClick={() => remove.mutate(m.userId)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t('common.remove')}
+                    onClick={() => remove.mutate(m.userId)}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
@@ -271,8 +407,17 @@ function Members({ slug, canAdmin }: { slug: string; canAdmin: boolean }) {
 
 function TeamPolicy({ slug }: { slug: string }) {
   const { t } = useTranslation();
-  const q = useQuery({ queryKey: ['policy', slug], queryFn: () => api.get<{ inherited: boolean; document: PolicyDocument; canEdit: boolean }>(`namespaces/${slug}/policy`) });
-  const save = useAction((document: PolicyDocument) => api.put(`namespaces/${slug}/policy`, { document }), { invalidate: [['policy', slug]], success: t('common.done') });
+  const q = useQuery({
+    queryKey: ['policy', slug],
+    queryFn: () =>
+      api.get<{ inherited: boolean; document: PolicyDocument; canEdit: boolean }>(
+        `namespaces/${slug}/policy`,
+      ),
+  });
+  const save = useAction((document: PolicyDocument) => api.put(`namespaces/${slug}/policy`, { document }), {
+    invalidate: [['policy', slug]],
+    success: t('common.done'),
+  });
   const reset = useAction(() => api.del(`namespaces/${slug}/policy`), { invalidate: [['policy', slug]] });
   if (!q.data) return <Skeleton className="h-64" />;
   return (
@@ -285,7 +430,12 @@ function TeamPolicy({ slug }: { slug: string }) {
           </Button>
         )}
       </div>
-      <PolicyEditor value={q.data.document} onSave={(d) => save.mutate(d)} saving={save.isPending} readOnly={!q.data.canEdit} />
+      <PolicyEditor
+        value={q.data.document}
+        onSave={(d) => save.mutate(d)}
+        saving={save.isPending}
+        readOnly={!q.data.canEdit}
+      />
     </div>
   );
 }
@@ -296,9 +446,17 @@ export function TeamDetailPage() {
   const search = useSearch({ from: '/app/teams/$slug' }) as { tab?: string };
   const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
-  const team = useQuery({ queryKey: ['namespace', slug], queryFn: () => api.get<TeamDetail>(`namespaces/${slug}`) });
-  const removeEntry = useAction((id: string) => api.del(`namespaces/${slug}/catalog/${id}`), { invalidate: [['namespace', slug]] });
-  const setLevel = useAction((b: { id: string; level: string }) => api.patch(`namespaces/${slug}/catalog/${b.id}`, { level: b.level }), { invalidate: [['namespace', slug]] });
+  const team = useQuery({
+    queryKey: ['namespace', slug],
+    queryFn: () => api.get<TeamDetail>(`namespaces/${slug}`),
+  });
+  const removeEntry = useAction((id: string) => api.del(`namespaces/${slug}/catalog/${id}`), {
+    invalidate: [['namespace', slug]],
+  });
+  const setLevel = useAction(
+    (b: { id: string; level: string }) => api.patch(`namespaces/${slug}/catalog/${b.id}`, { level: b.level }),
+    { invalidate: [['namespace', slug]] },
+  );
   if (team.isLoading) return <Skeleton className="h-64" />;
   const d = team.data;
   if (!d) return <EmptyState title={t('common.notFound')} />;
@@ -306,10 +464,13 @@ export function TeamDetailPage() {
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start gap-4">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl text-lg font-semibold text-white" style={{ background: d.color ?? 'var(--accent)' }}>
+        <span
+          className="flex h-11 w-11 items-center justify-center rounded-xl text-lg font-semibold text-white"
+          style={{ background: d.color ?? 'var(--accent)' }}
+        >
           {d.displayName.slice(0, 1).toUpperCase()}
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[16rem] flex-1">
           <div className="flex items-center gap-2">
             <h1 className="text-[22px] font-semibold tracking-tight">{d.displayName}</h1>
             <Badge>{t(`visibility.${d.visibility}`)}</Badge>
@@ -325,7 +486,9 @@ export function TeamDetailPage() {
       </div>
       <Tabs
         value={tab}
-        onValueChange={(v) => navigate({ to: '/teams/$slug', params: { slug }, search: { tab: v }, replace: true })}
+        onValueChange={(v) =>
+          navigate({ to: '/teams/$slug', params: { slug }, search: { tab: v }, replace: true })
+        }
         tabs={[
           { value: 'catalog', label: t('teams.catalog'), count: d.catalog.length },
           { value: 'members', label: t('common.members'), count: d.memberCount },
@@ -333,9 +496,11 @@ export function TeamDetailPage() {
         ]}
       >
         <TabPanel value="catalog">
-          <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
             <Card className="overflow-hidden">
-              {d.catalog.length === 0 && <EmptyState icon={<Boxes className="h-5 w-5" />} title={t('teams.catalogEmpty')} />}
+              {d.catalog.length === 0 && (
+                <EmptyState icon={<Boxes className="h-5 w-5" />} title={t('teams.catalogEmpty')} />
+              )}
               {d.catalog.map((e) =>
                 e.skill ? (
                   <SkillRow
@@ -344,25 +509,45 @@ export function TeamDetailPage() {
                     right={
                       d.canManage ? (
                         // biome-ignore lint/a11y/noStaticElementInteractions: stop row navigation
-                        <div className="flex items-center gap-1" onClick={(ev) => ev.preventDefault()} onKeyDown={() => {}}>
-                          <Select value={e.level} onChange={(ev) => setLevel.mutate({ id: e.id, level: ev.target.value })} className="h-7 w-32 text-[12px]">
+                        <div
+                          className="flex items-center gap-1"
+                          onClick={(ev) => ev.preventDefault()}
+                          onKeyDown={() => {}}
+                        >
+                          <Select
+                            value={e.level}
+                            onChange={(ev) => setLevel.mutate({ id: e.id, level: ev.target.value })}
+                            className="h-7 w-32 text-[12px]"
+                          >
                             {['required', 'recommended', 'optional'].map((l) => (
                               <option key={l} value={l}>
                                 {t(`level.${l}`)}
                               </option>
                             ))}
                           </Select>
-                          <Button variant="ghost" size="icon" aria-label={t('common.remove')} onClick={() => removeEntry.mutate(e.id)}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={t('common.remove')}
+                            onClick={() => removeEntry.mutate(e.id)}
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       ) : (
-                        <Badge tone={e.level === 'required' ? 'accent' : 'neutral'}>{t(`level.${e.level}`)}</Badge>
+                        <Badge tone={e.level === 'required' ? 'accent' : 'neutral'}>
+                          {t(`level.${e.level}`)}
+                        </Badge>
                       )
                     }
                   />
                 ) : e.suite ? (
-                  <Link key={e.id} to="/suites/$ns/$name" params={{ ns: e.suite.namespace, name: e.suite.name }} className="flex items-center gap-3 border-b border-border px-4 py-2.5 hover:bg-panel-hover">
+                  <Link
+                    key={e.id}
+                    to="/suites/$ns/$name"
+                    params={{ ns: e.suite.namespace, name: e.suite.name }}
+                    className="flex items-center gap-3 border-b border-border px-4 py-2.5 hover:bg-panel-hover"
+                  >
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-accent-soft text-accent">
                       <Boxes className="h-4 w-4" />
                     </span>
@@ -371,7 +556,9 @@ export function TeamDetailPage() {
                       <div className="truncate text-[12.5px] text-muted">{e.suite.description}</div>
                     </div>
                     <StatusPill status={e.suite.status as never} withHelp={false} />
-                    <Badge tone={e.level === 'required' ? 'accent' : 'neutral'}>{t(`level.${e.level}`)}</Badge>
+                    <Badge tone={e.level === 'required' ? 'accent' : 'neutral'}>
+                      {t(`level.${e.level}`)}
+                    </Badge>
                     {d.canManage && (
                       <Button
                         variant="ghost"
@@ -391,7 +578,9 @@ export function TeamDetailPage() {
             </Card>
             <Card className="h-fit p-4">
               <div className="mb-1 font-semibold">{t('teams.installTeam')}</div>
-              <p className="mb-3 text-[12.5px] text-muted">{t('count.skills', { count: d.installableCount })}</p>
+              <p className="mb-3 text-[12.5px] text-muted">
+                {t('count.skills', { count: d.installableCount })}
+              </p>
               <InstallPanel install={d.install} />
             </Card>
           </div>

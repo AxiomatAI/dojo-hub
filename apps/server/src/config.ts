@@ -45,7 +45,9 @@ const schema = z.object({
 export type Config = z.infer<typeof schema>;
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
-  const cfg = schema.parse(env);
+  // Treat empty strings (common with docker-compose `${VAR:-}` defaults) as unset.
+  const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== ''));
+  const cfg = schema.parse(cleaned);
   cfg.DOJO_BASE_URL = cfg.DOJO_BASE_URL.replace(/\/+$/, '');
   if (cfg.NODE_ENV === 'production' && cfg.DOJO_SECRET_KEY.startsWith('dev-insecure')) {
     throw new Error('DOJO_SECRET_KEY must be set to a random value (>= 32 chars) in production');

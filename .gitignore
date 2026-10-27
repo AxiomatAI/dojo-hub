@@ -11,3 +11,4 @@ test-results
 .data
 .DS_Store
 *.tsbuildinfo
+.claude/

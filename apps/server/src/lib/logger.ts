@@ -5,7 +5,9 @@ export function createLogger(level: string, pretty: boolean) {
     level,
     base: { service: 'dojohub' },
     redact: ['req.headers.authorization', 'req.headers.cookie', '*.apiKey', '*.password', '*.secret'],
-    ...(pretty ? { transport: { target: 'pino-pretty', options: { colorize: true, translateTime: 'HH:MM:ss' } } } : {}),
+    ...(pretty
+      ? { transport: { target: 'pino-pretty', options: { colorize: true, translateTime: 'HH:MM:ss' } } }
+      : {}),
   });
 }
 export type Logger = ReturnType<typeof createLogger>;

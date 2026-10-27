@@ -30,11 +30,14 @@ export function scopeAllows(actor: Actor, cap: Capability): boolean {
   return actor.scopes.some((s) => SCOPE_GRANTS[s].includes(cap));
 }
 
-export const isOrgAdmin = (a: Actor) => (a.orgRole === 'owner' || a.orgRole === 'admin') && scopeAllows(a, 'admin');
+export const isOrgAdmin = (a: Actor) =>
+  (a.orgRole === 'owner' || a.orgRole === 'admin') && scopeAllows(a, 'admin');
 export const isSecurityReviewer = (a: Actor) => a.orgRole === 'security_reviewer' || isOrgAdmin(a);
-export const canReadAudit = (a: Actor) => ['owner', 'admin', 'auditor'].includes(a.orgRole) && scopeAllows(a, 'read');
+export const canReadAudit = (a: Actor) =>
+  ['owner', 'admin', 'auditor'].includes(a.orgRole) && scopeAllows(a, 'read');
 /** Org-wide read access to every namespace (admins, security reviewers, auditors). */
-export const hasGlobalRead = (a: Actor) => ['owner', 'admin', 'security_reviewer', 'auditor'].includes(a.orgRole);
+export const hasGlobalRead = (a: Actor) =>
+  ['owner', 'admin', 'security_reviewer', 'auditor'].includes(a.orgRole);
 
 export interface NamespaceRef {
   id: string;

@@ -19,18 +19,35 @@ export interface VersionDetail {
   riskScore: number | null;
 }
 
-export function FilesBrowser({ skill, version, files, initial }: { skill: string; version: string; files: VersionFileDto[]; initial?: string }) {
+export function FilesBrowser({
+  skill,
+  version,
+  files,
+  initial,
+}: {
+  skill: string;
+  version: string;
+  files: VersionFileDto[];
+  initial?: string;
+}) {
   const { t } = useTranslation();
-  const [selected, setSelected] = useState<string | null>(initial ?? (files.some((f) => f.path === 'SKILL.md') ? 'SKILL.md' : (files[0]?.path ?? null)));
+  const [selected, setSelected] = useState<string | null>(
+    initial ?? (files.some((f) => f.path === 'SKILL.md') ? 'SKILL.md' : (files[0]?.path ?? null)),
+  );
   useEffect(() => {
     if (initial) setSelected(initial);
   }, [initial]);
   const file = files.find((f) => f.path === selected);
-  const isText = file && (file.mime.startsWith('text/') || /json|yaml|xml|toml|javascript|typescript|x-sh/.test(file.mime));
+  const isText =
+    file &&
+    (file.mime.startsWith('text/') || /json|yaml|xml|toml|javascript|typescript|x-sh/.test(file.mime));
   const content = useQuery({
     queryKey: ['file', skill, version, selected],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/skills/${encodeURIComponent(skill)}/versions/${encodeURIComponent(version)}/files/${selected!.split('/').map(encodeURIComponent).join('/')}`, { credentials: 'include' });
+      const res = await fetch(
+        `/api/v1/skills/${encodeURIComponent(skill)}/versions/${encodeURIComponent(version)}/files/${selected!.split('/').map(encodeURIComponent).join('/')}`,
+        { credentials: 'include' },
+      );
       return res.text();
     },
     enabled: !!selected && !!isText,
@@ -89,7 +106,15 @@ export function FilesBrowser({ skill, version, files, initial }: { skill: string
   );
 }
 
-export function SecurityReport({ detail, skill, onFile }: { detail: VersionDetail; skill: string; onFile?: (p: string) => void }) {
+export function SecurityReport({
+  detail,
+  skill,
+  onFile,
+}: {
+  detail: VersionDetail;
+  skill: string;
+  onFile?: (p: string) => void;
+}) {
   const { t } = useTranslation();
   if (['submitted', 'scanning'].includes(detail.status) && !detail.scans.length) {
     return (
@@ -100,10 +125,26 @@ export function SecurityReport({ detail, skill, onFile }: { detail: VersionDetai
   }
   const llm = detail.scans.find((s) => s.analyzer === 'llm');
   const report = llm?.report as
-    | { summary?: string; category?: string; claimsMatch?: { score: number; explanation: string; mismatches: string[] }; quality?: { score: number; notes: string[] }; security?: { verdict: string } }
+    | {
+        summary?: string;
+        category?: string;
+        claimsMatch?: { score: number; explanation: string; mismatches: string[] };
+        quality?: { score: number; notes: string[] };
+        security?: { verdict: string };
+      }
     | null
     | undefined;
-  const ordered = ['structure', 'static', 'secrets', 'assets', 'dependencies', 'llm', 'decision_model', 'duplicates', 'pipeline'];
+  const ordered = [
+    'structure',
+    'static',
+    'secrets',
+    'assets',
+    'dependencies',
+    'llm',
+    'decision_model',
+    'duplicates',
+    'pipeline',
+  ];
   const scans = [...detail.scans].sort((a, b) => ordered.indexOf(a.analyzer) - ordered.indexOf(b.analyzer));
   return (
     <div className="space-y-4">
@@ -115,12 +156,28 @@ export function SecurityReport({ detail, skill, onFile }: { detail: VersionDetai
               {t('security.analyzer.llm')}
             </span>
           }
-          actions={report?.security?.verdict && <Badge tone={report.security.verdict === 'safe' ? 'ok' : report.security.verdict === 'suspicious' ? 'warn' : 'danger'}>{report.security.verdict}</Badge>}
+          actions={
+            report?.security?.verdict && (
+              <Badge
+                tone={
+                  report.security.verdict === 'safe'
+                    ? 'ok'
+                    : report.security.verdict === 'suspicious'
+                      ? 'warn'
+                      : 'danger'
+                }
+              >
+                {report.security.verdict}
+              </Badge>
+            )
+          }
         />
         {llm?.status === 'done' && report ? (
-          <div className="grid gap-5 p-4 md:grid-cols-[1fr_260px]">
+          <div className="grid gap-5 p-4 md:grid-cols-[minmax(0,1fr)_260px]">
             <div>
-              <div className="mb-1 text-[12px] font-medium text-subtle uppercase">{t('security.llmSummary')}</div>
+              <div className="mb-1 text-[12px] font-medium text-subtle uppercase">
+                {t('security.llmSummary')}
+              </div>
               <p className="text-[13.5px] leading-relaxed">{report.summary}</p>
               {!!report.claimsMatch?.mismatches?.length && (
                 <ul className="mt-3 list-disc space-y-1 pl-5 text-[13px] text-warn">
@@ -132,7 +189,9 @@ export function SecurityReport({ detail, skill, onFile }: { detail: VersionDetai
               {llm.model && <p className="mt-3 text-[11.5px] text-subtle">{llm.model}</p>}
             </div>
             <div className="space-y-4">
-              {report.claimsMatch && <ScoreBar value={report.claimsMatch.score} label={t('security.claimsMatch')} />}
+              {report.claimsMatch && (
+                <ScoreBar value={report.claimsMatch.score} label={t('security.claimsMatch')} />
+              )}
               {report.quality && <ScoreBar value={report.quality.score} label={t('security.quality')} />}
             </div>
           </div>
@@ -151,10 +210,19 @@ export function SecurityReport({ detail, skill, onFile }: { detail: VersionDetai
           <CardHeader title={t('security.duplicates')} />
           <ul>
             {detail.duplicates.map((d) => (
-              <li key={`${d.versionId}-${d.kind}`} className="flex items-center gap-3 border-b border-border px-4 py-2 text-[13px] last:border-b-0">
+              <li
+                key={`${d.versionId}-${d.kind}`}
+                className="flex items-center gap-3 border-b border-border px-4 py-2 text-[13px] last:border-b-0"
+              >
                 <Badge tone={d.kind === 'exact' ? 'warn' : 'neutral'}>{d.kind}</Badge>
-                <span className="text-muted">{t('security.similarTo', { score: Math.round(d.score * 100) })}</span>
-                <Link to="/skills/$name" params={{ name: d.skillName }} className="font-medium hover:text-accent">
+                <span className="text-muted">
+                  {t('security.similarTo', { score: Math.round(d.score * 100) })}
+                </span>
+                <Link
+                  to="/skills/$name"
+                  params={{ name: d.skillName }}
+                  className="font-medium hover:text-accent"
+                >
                   {d.skillName}
                 </Link>
                 <span className="font-mono text-[12px] text-subtle">
@@ -184,9 +252,13 @@ export function SecurityReport({ detail, skill, onFile }: { detail: VersionDetai
                   ) : s.status === 'error' ? (
                     <Badge tone="warn">{s.error?.slice(0, 60) ?? 'error'}</Badge>
                   ) : (
-                    <Badge tone={s.verdict === 'fail' ? 'danger' : s.verdict === 'warn' ? 'warn' : 'ok'}>{t(`security.${s.verdict ?? 'pass'}`)}</Badge>
+                    <Badge tone={s.verdict === 'fail' ? 'danger' : s.verdict === 'warn' ? 'warn' : 'ok'}>
+                      {t(`security.${s.verdict ?? 'pass'}`)}
+                    </Badge>
                   )}
-                  <span className="text-[12px] text-subtle">{t('count.findings', { count: s.findings.length })}</span>
+                  <span className="text-[12px] text-subtle">
+                    {t('count.findings', { count: s.findings.length })}
+                  </span>
                 </>
               }
             />

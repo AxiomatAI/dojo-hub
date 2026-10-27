@@ -2,7 +2,10 @@ import { execFile, spawn } from 'node:child_process';
 import { chmod, mkdir, mkdtemp, readdir, rename, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
+import { skillVersion } from '@dojohub/db';
+import { and, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
+import semver from 'semver';
 import type { Env } from '../auth/actor';
 import type { AppContext } from '../context';
 import { sha256 } from '../lib/crypto';
@@ -10,10 +13,15 @@ import { getNamespace } from '../services/namespaces';
 import { getOrgId } from '../services/org';
 import { loadVersionFiles } from '../services/skills';
 import { recordInstall } from '../services/stats';
-import { skillVersion } from '@dojohub/db';
-import { and, eq, inArray } from 'drizzle-orm';
-import semver from 'semver';
-import { type Bundle, canDownload, findSkill, findSuite, type NamespaceRow, suiteBundle, teamBundle } from './resolve';
+import {
+  type Bundle,
+  canDownload,
+  findSkill,
+  findSuite,
+  type NamespaceRow,
+  suiteBundle,
+  teamBundle,
+} from './resolve';
 
 const exec = promisify(execFile);
 
@@ -25,7 +33,8 @@ interface Snapshot {
 const AUTHOR = { name: 'DojoHub', email: 'dojohub@localhost' };
 
 async function writeTree(dir: string, files: Map<string, Uint8Array>) {
-  for (const entry of await readdir(dir)) if (entry !== '.git') await rm(join(dir, entry), { recursive: true, force: true });
+  for (const entry of await readdir(dir))
+    if (entry !== '.git') await rm(join(dir, entry), { recursive: true, force: true });
   for (const [path, bytes] of files) {
     const full = join(dir, path);
     await mkdir(dirname(full), { recursive: true });
@@ -55,7 +64,9 @@ async function materialize(ctx: AppContext, key: string, snapshot: Snapshot): Pr
   const tmp = await mkdtemp(join(root, '.build-'));
   const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', HOME: tmp };
   const git = (args: string[], extra: Record<string, string> = {}) =>
-    exec('git', ['-C', tmp, '-c', 'core.autocrlf=false', '-c', 'core.fileMode=true', ...args], { env: { ...env, ...extra } });
+    exec('git', ['-C', tmp, '-c', 'core.autocrlf=false', '-c', 'core.fileMode=true', ...args], {
+      env: { ...env, ...extra },
+    });
   try {
     await git(['init', '-q', '-b', 'main']);
     for (const commit of snapshot.commits) {
@@ -84,7 +95,10 @@ async function materialize(ctx: AppContext, key: string, snapshot: Snapshot): Pr
   }
 }
 
-async function singleSkillSnapshot(ctx: AppContext, skillId: string): Promise<{ key: string; snapshot: Snapshot; latest: string | null }> {
+async function singleSkillSnapshot(
+  ctx: AppContext,
+  skillId: string,
+): Promise<{ key: string; snapshot: Snapshot; latest: string | null }> {
   const versions = (
     await ctx.db
       .select()
@@ -110,9 +124,16 @@ async function singleSkillSnapshot(ctx: AppContext, skillId: string): Promise<{ 
   };
 }
 
-function bundleSnapshot(ctx: AppContext, label: string, bundles: Bundle[]): { key: string; snapshot: Snapshot } {
+function bundleSnapshot(
+  ctx: AppContext,
+  label: string,
+  bundles: Bundle[],
+): { key: string; snapshot: Snapshot } {
   const key = `b-${sha256(`${label}|${bundles.map((b) => `${b.skill.name}:${b.version.id}`).join('|')}`).slice(0, 24)}`;
-  const newest = bundles.reduce((d, b) => Math.max(d, (b.version.publishedAt ?? b.version.createdAt).getTime()), 0);
+  const newest = bundles.reduce(
+    (d, b) => Math.max(d, (b.version.publishedAt ?? b.version.createdAt).getTime()),
+    0,
+  );
   return {
     key,
     snapshot: {
@@ -123,11 +144,14 @@ function bundleSnapshot(ctx: AppContext, label: string, bundles: Bundle[]): { ke
           files: async () => {
             const out = new Map<string, Uint8Array>();
             for (const b of bundles) {
-              for (const [p, bytes] of await loadVersionFiles(ctx, b.version.id)) out.set(`skills/${b.skill.name}/${p}`, bytes);
+              for (const [p, bytes] of await loadVersionFiles(ctx, b.version.id))
+                out.set(`skills/${b.skill.name}/${p}`, bytes);
             }
             out.set(
               'README.md',
-              new TextEncoder().encode(`# ${label}\n\nServed by DojoHub. Install with \`npx skills add <this-url>\`.\n\n${bundles.map((b) => `- **${b.skill.name}** ${b.version.version}: ${b.version.description}`).join('\n')}\n`),
+              new TextEncoder().encode(
+                `# ${label}\n\nServed by DojoHub. Install with \`npx skills add <this-url>\`.\n\n${bundles.map((b) => `- **${b.skill.name}** ${b.version.version}: ${b.version.description}`).join('\n')}\n`,
+              ),
             );
             return out;
           },
@@ -150,7 +174,9 @@ function unauthorizedGit() {
 
 async function runUploadPack(repo: string, args: string[], input?: Uint8Array): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
-    const child = spawn('git', ['upload-pack', '--stateless-rpc', ...args, repo], { env: { ...process.env, GIT_PROTOCOL: 'version=1' } });
+    const child = spawn('git', ['upload-pack', '--stateless-rpc', ...args, repo], {
+      env: { ...process.env, GIT_PROTOCOL: 'version=1' },
+    });
     const chunks: Buffer[] = [];
     const errs: Buffer[] = [];
     child.stdout.on('data', (d: Buffer) => chunks.push(d));
@@ -178,7 +204,10 @@ interface Target {
 export function gitRoutes(ctx: AppContext) {
   const app = new Hono<Env>();
 
-  const resolveTarget = async (path: string, c: { get: (k: 'actor') => Env['Variables']['actor']; req: { header: (n: string) => string | undefined } }): Promise<Target | null> => {
+  const resolveTarget = async (
+    path: string,
+    c: { get: (k: 'actor') => Env['Variables']['actor']; req: { header: (n: string) => string | undefined } },
+  ): Promise<Target | null> => {
     const orgId = await getOrgId(ctx);
     const actor = c.get('actor');
     const m = /^(s|suites)\/([^/]+)\/([^/]+?)\.git$|^t\/([^/]+?)\.git$/.exec(path);
@@ -189,7 +218,14 @@ export function gitRoutes(ctx: AppContext) {
       return {
         ns,
         build: async () => bundleSnapshot(ctx, `Team ${ns.displayName}`, await teamBundle(ctx, ns)),
-        onFetch: () => recordInstall(ctx, { orgId, channel: 'git', namespaceId: ns.id, actorId: actor?.userId, userAgent: c.req.header('user-agent') }),
+        onFetch: () =>
+          recordInstall(ctx, {
+            orgId,
+            channel: 'git',
+            namespaceId: ns.id,
+            actorId: actor?.userId,
+            userAgent: c.req.header('user-agent'),
+          }),
       };
     }
     if (m[1] === 's') {
@@ -219,9 +255,17 @@ export function gitRoutes(ctx: AppContext) {
     if (!found) return null;
     return {
       ns: found.namespace,
-      build: async () => bundleSnapshot(ctx, `Suite ${found.suite.displayName}`, await suiteBundle(ctx, found.suite.id)),
+      build: async () =>
+        bundleSnapshot(ctx, `Suite ${found.suite.displayName}`, await suiteBundle(ctx, found.suite.id)),
       onFetch: () =>
-        recordInstall(ctx, { orgId, channel: 'git', suiteId: found.suite.id, namespaceId: found.namespace.id, actorId: actor?.userId, userAgent: c.req.header('user-agent') }),
+        recordInstall(ctx, {
+          orgId,
+          channel: 'git',
+          suiteId: found.suite.id,
+          namespaceId: found.namespace.id,
+          actorId: actor?.userId,
+          userAgent: c.req.header('user-agent'),
+        }),
     };
   };
 
@@ -232,7 +276,8 @@ export function gitRoutes(ctx: AppContext) {
     }
     const target = await resolveTarget(rest.replace(/\/info\/refs$/, ''), c);
     if (!target) return c.get('actor') ? c.text('Not found', 404) : unauthorizedGit();
-    if (!(await canDownload(ctx, c.get('actor'), target.ns))) return c.get('actor') ? c.text('Not found', 404) : unauthorizedGit();
+    if (!(await canDownload(ctx, c.get('actor'), target.ns)))
+      return c.get('actor') ? c.text('Not found', 404) : unauthorizedGit();
     const { key, snapshot } = await target.build();
     if (!snapshot.commits.length) return c.text('Nothing has been published here yet', 404);
     const repo = await materialize(ctx, key, snapshot);
@@ -251,7 +296,8 @@ export function gitRoutes(ctx: AppContext) {
     if (!rest.endsWith('/git-upload-pack')) return c.text('Push is not supported', 403);
     const target = await resolveTarget(rest.replace(/\/git-upload-pack$/, ''), c);
     if (!target) return c.get('actor') ? c.text('Not found', 404) : unauthorizedGit();
-    if (!(await canDownload(ctx, c.get('actor'), target.ns))) return c.get('actor') ? c.text('Not found', 404) : unauthorizedGit();
+    if (!(await canDownload(ctx, c.get('actor'), target.ns)))
+      return c.get('actor') ? c.text('Not found', 404) : unauthorizedGit();
     const { key, snapshot } = await target.build();
     const repo = await materialize(ctx, key, snapshot);
     let input = new Uint8Array(await c.req.arrayBuffer());

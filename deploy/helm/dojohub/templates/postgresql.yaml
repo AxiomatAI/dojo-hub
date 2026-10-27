@@ -1,0 +1,48 @@
+{{- if .Values.postgresql.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "dojohub.fullname" . }}-postgresql
+  labels: {{- include "dojohub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  serviceName: {{ include "dojohub.fullname" . }}-postgresql
+  replicas: 1
+  selector:
+    matchLabels: {{- include "dojohub.selector" . | nindent 6 }}
+      app.kubernetes.io/component: postgresql
+  template:
+    metadata:
+      labels: {{- include "dojohub.selector" . | nindent 8 }}
+        app.kubernetes.io/component: postgresql
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgresql.image }}
+          env:
+            - { name: POSTGRES_USER, value: dojohub }
+            - { name: POSTGRES_DB, value: dojohub }
+            - { name: POSTGRES_PASSWORD, value: {{ .Values.postgresql.password | quote }} }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports: [{ name: pg, containerPort: 5432 }]
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "dojohub"] }
+          volumeMounts:
+            - { name: pgdata, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata: { name: pgdata }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: {{ .Values.postgresql.size }} } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dojohub.fullname" . }}-postgresql
+  labels: {{- include "dojohub.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector: {{- include "dojohub.selector" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+  ports: [{ name: pg, port: 5432 }]
+{{- end }}

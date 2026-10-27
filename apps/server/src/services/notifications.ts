@@ -11,6 +11,12 @@ export async function notify(
   if (!unique.length) return;
   await ctx.db.insert(notification).values(unique.map((userId) => ({ orgId, userId, ...n })));
   if (ctx.config.SMTP_URL) {
-    await ctx.jobs.send('email.send', { orgId, userIds: unique, subject: n.title, body: n.body ?? '', link: n.link });
+    await ctx.jobs.send('email.send', {
+      orgId,
+      userIds: unique,
+      subject: n.title,
+      body: n.body ?? '',
+      link: n.link,
+    });
   }
 }

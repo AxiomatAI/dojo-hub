@@ -1,12 +1,59 @@
-import { type NamespaceDto, type SkillDetailDto, type VersionDto } from '@dojohub/contract';
+import type { NamespaceDto, SkillDetailDto, VersionDto } from '@dojohub/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { AlertTriangle, ArrowLeftRight, Ban, Download, ExternalLink, GitCommit, MoreHorizontal, Plus, RotateCcw, Send, Undo2, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  Ban,
+  Download,
+  ExternalLink,
+  GitCommit,
+  MoreHorizontal,
+  Plus,
+  RotateCcw,
+  Send,
+  Undo2,
+  Users,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from 'recharts';
-import { DiffView, InstallMenu, Markdown, NamespaceChip, RiskBadge, SkillGlyph, StatusPill } from '../components/dojo';
-import { Badge, Button, Card, CardHeader, Dialog, EmptyState, Field, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Select, Skeleton, TabPanel, Tabs, Textarea } from '../components/ui';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip as RTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
+  DiffView,
+  InstallMenu,
+  Markdown,
+  NamespaceChip,
+  RiskBadge,
+  SkillGlyph,
+  StatusPill,
+} from '../components/dojo';
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  Dialog,
+  EmptyState,
+  Field,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuSeparator,
+  MenuTrigger,
+  Select,
+  Skeleton,
+  TabPanel,
+  Tabs,
+  Textarea,
+} from '../components/ui';
 import { FilesBrowser, SecurityReport, type VersionDetail } from '../components/version';
 import { api } from '../lib/api';
 import { formatDateTime, formatNumber, relativeTime } from '../lib/format';
@@ -19,7 +66,8 @@ type FullVersion = VersionDetail &
 function useVersion(name: string, version: string | null | undefined) {
   return useQuery({
     queryKey: ['version', name, version],
-    queryFn: () => api.get<FullVersion>(`skills/${encodeURIComponent(name)}/versions/${encodeURIComponent(version!)}`),
+    queryFn: () =>
+      api.get<FullVersion>(`skills/${encodeURIComponent(name)}/versions/${encodeURIComponent(version!)}`),
     enabled: !!version,
     refetchInterval: (q) => (['submitted', 'scanning'].includes(q.state.data?.status ?? '') ? 2500 : false),
   });
@@ -30,14 +78,29 @@ function VersionActions({ name, v }: { name: string; v: FullVersion }) {
   const [dialog, setDialog] = useState<null | 'blocked' | 'deprecated'>(null);
   const [reason, setReason] = useState('');
   const keys = [['skill', name], ['version', name, v.version], ['skills']];
-  const status = useAction((body: { status: string; reason?: string }) => api.post(`skills/${name}/versions/${v.version}/status`, body), { invalidate: keys, onSuccess: () => setDialog(null) });
-  const submit = useAction(() => api.post(`skills/${name}/versions/${v.version}/submit`), { invalidate: keys });
-  const withdraw = useAction(() => api.post(`skills/${name}/versions/${v.version}/withdraw`), { invalidate: keys });
-  const rescan = useAction(() => api.post(`skills/${name}/versions/${v.version}/rescan`), { invalidate: keys });
+  const status = useAction(
+    (body: { status: string; reason?: string }) =>
+      api.post(`skills/${name}/versions/${v.version}/status`, body),
+    { invalidate: keys, onSuccess: () => setDialog(null) },
+  );
+  const submit = useAction(() => api.post(`skills/${name}/versions/${v.version}/submit`), {
+    invalidate: keys,
+  });
+  const withdraw = useAction(() => api.post(`skills/${name}/versions/${v.version}/withdraw`), {
+    invalidate: keys,
+  });
+  const rescan = useAction(() => api.post(`skills/${name}/versions/${v.version}/rescan`), {
+    invalidate: keys,
+  });
   return (
     <>
       {v.canSubmit && (
-        <Button variant="primary" icon={<Send className="h-3.5 w-3.5" />} loading={submit.isPending} onClick={() => submit.mutate(undefined)}>
+        <Button
+          variant="primary"
+          icon={<Send className="h-3.5 w-3.5" />}
+          loading={submit.isPending}
+          onClick={() => submit.mutate(undefined)}
+        >
           {t('skills.submitDraft')}
         </Button>
       )}
@@ -48,7 +111,10 @@ function VersionActions({ name, v }: { name: string; v: FullVersion }) {
           </Button>
         </MenuTrigger>
         <MenuContent>
-          <MenuItem icon={<Download className="h-4 w-4" />} onSelect={() => window.open(`/api/v1/skills/${name}/versions/${v.version}/download?channel=web`)}>
+          <MenuItem
+            icon={<Download className="h-4 w-4" />}
+            onSelect={() => window.open(`/api/v1/skills/${name}/versions/${v.version}/download?channel=web`)}
+          >
             {t('skills.download')}
           </MenuItem>
           {v.status === 'in_review' && (
@@ -65,7 +131,10 @@ function VersionActions({ name, v }: { name: string; v: FullVersion }) {
             <>
               <MenuSeparator />
               {v.status === 'approved' && (
-                <MenuItem icon={<AlertTriangle className="h-4 w-4" />} onSelect={() => setDialog('deprecated')}>
+                <MenuItem
+                  icon={<AlertTriangle className="h-4 w-4" />}
+                  onSelect={() => setDialog('deprecated')}
+                >
                   {t('skills.deprecate')}
                 </MenuItem>
               )}
@@ -75,7 +144,10 @@ function VersionActions({ name, v }: { name: string; v: FullVersion }) {
                 </MenuItem>
               )}
               {['blocked', 'deprecated'].includes(v.status) && (
-                <MenuItem icon={<RotateCcw className="h-4 w-4" />} onSelect={() => status.mutate({ status: 'approved' })}>
+                <MenuItem
+                  icon={<RotateCcw className="h-4 w-4" />}
+                  onSelect={() => status.mutate({ status: 'approved' })}
+                >
                   {t('skills.unblock')}
                 </MenuItem>
               )}
@@ -86,7 +158,11 @@ function VersionActions({ name, v }: { name: string; v: FullVersion }) {
       <Dialog
         open={!!dialog}
         onOpenChange={(o) => !o && setDialog(null)}
-        title={dialog === 'blocked' ? `${t('skills.block')} ${name}@${v.version}` : `${t('skills.deprecate')} ${name}@${v.version}`}
+        title={
+          dialog === 'blocked'
+            ? `${t('skills.block')} ${name}@${v.version}`
+            : `${t('skills.deprecate')} ${name}@${v.version}`
+        }
         description={dialog === 'blocked' ? t('skills.blockConfirm') : undefined}
         footer={
           <>
@@ -112,20 +188,42 @@ function VersionActions({ name, v }: { name: string; v: FullVersion }) {
   );
 }
 
-function AddToTeam({ skillId, open, onOpenChange }: { skillId: string; open: boolean; onOpenChange: (v: boolean) => void }) {
+function AddToTeam({
+  skillId,
+  open,
+  onOpenChange,
+}: {
+  skillId: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   const { t } = useTranslation();
-  const teams = useQuery({ queryKey: ['namespaces'], queryFn: () => api.get<NamespaceDto[]>('namespaces'), enabled: open });
-  const manageable = teams.data?.filter((n) => n.myRole === 'owner' || n.myRole === 'maintainer' || n.kind === 'org') ?? [];
+  const teams = useQuery({
+    queryKey: ['namespaces'],
+    queryFn: () => api.get<NamespaceDto[]>('namespaces'),
+    enabled: open,
+  });
+  const manageable =
+    teams.data?.filter((n) => n.myRole === 'owner' || n.myRole === 'maintainer' || n.kind === 'org') ?? [];
   const [team, setTeam] = useState('');
   const [level, setLevel] = useState('recommended');
-  const add = useAction(() => api.post(`namespaces/${team}/catalog`, { skillId, level }), { invalidate: [['skill'], ['namespace']], success: t('common.done'), onSuccess: () => onOpenChange(false) });
+  const add = useAction(() => api.post(`namespaces/${team}/catalog`, { skillId, level }), {
+    invalidate: [['skill'], ['namespace']],
+    success: t('common.done'),
+    onSuccess: () => onOpenChange(false),
+  });
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
       title={t('skills.addToTeam')}
       footer={
-        <Button variant="primary" disabled={!team} loading={add.isPending} onClick={() => add.mutate(undefined)}>
+        <Button
+          variant="primary"
+          disabled={!team}
+          loading={add.isPending}
+          onClick={() => add.mutate(undefined)}
+        >
           {t('common.add')}
         </Button>
       }
@@ -157,10 +255,18 @@ function AddToTeam({ skillId, open, onOpenChange }: { skillId: string; open: boo
 
 function InstallsChart({ name }: { name: string }) {
   const { t } = useTranslation();
-  const stats = useQuery({ queryKey: ['skill-stats', name], queryFn: () => api.get<{ total: number; days: { day: string; installs: number; updates: number }[]; channels: Record<string, number> }>(`skills/${name}/stats`) });
+  const stats = useQuery({
+    queryKey: ['skill-stats', name],
+    queryFn: () =>
+      api.get<{
+        total: number;
+        days: { day: string; installs: number; updates: number }[];
+        channels: Record<string, number>;
+      }>(`skills/${name}/stats`),
+  });
   if (!stats.data) return <Skeleton className="h-64" />;
   return (
-    <div className="grid gap-4 md:grid-cols-[1fr_240px]">
+    <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_240px]">
       <Card className="p-4">
         <div className="mb-3 text-[13px] font-semibold">{t('dashboard.installsOverTime')}</div>
         <div className="h-60">
@@ -173,10 +279,35 @@ function InstallsChart({ name }: { name: string }) {
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--fg-subtle)' }} tickFormatter={(d: string) => d.slice(5)} minTickGap={24} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--fg-subtle)' }} axisLine={false} tickLine={false} />
-              <RTooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
-              <Area type="monotone" dataKey="installs" stroke="var(--accent)" fill="url(#inst)" strokeWidth={2} />
+              <XAxis
+                dataKey="day"
+                tick={{ fontSize: 11, fill: 'var(--fg-subtle)' }}
+                tickFormatter={(d: string) => d.slice(5)}
+                minTickGap={24}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 11, fill: 'var(--fg-subtle)' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <RTooltip
+                contentStyle={{
+                  background: 'var(--panel)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="installs"
+                stroke="var(--accent)"
+                fill="url(#inst)"
+                strokeWidth={2}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -204,13 +335,19 @@ export function SkillDetailPage() {
   const navigate = useNavigate();
   const tab = search.tab ?? 'overview';
   const [addTeam, setAddTeam] = useState(false);
-  const skill = useQuery({ queryKey: ['skill', name], queryFn: () => api.get<SkillDetailDto>(`skills/${encodeURIComponent(name)}`) });
+  const skill = useQuery({
+    queryKey: ['skill', name],
+    queryFn: () => api.get<SkillDetailDto>(`skills/${encodeURIComponent(name)}`),
+  });
   const s = skill.data;
   const current = s?.versions.find((v) => v.version === s.publishedVersion) ?? s?.versions[0];
   const version = useVersion(name, current?.version);
   const readme = useQuery({
     queryKey: ['file', name, current?.version, 'SKILL.md'],
-    queryFn: () => fetch(`/api/v1/skills/${encodeURIComponent(name)}/versions/${current!.version}/files/SKILL.md`, { credentials: 'include' }).then((r) => r.text()),
+    queryFn: () =>
+      fetch(`/api/v1/skills/${encodeURIComponent(name)}/versions/${current!.version}/files/SKILL.md`, {
+        credentials: 'include',
+      }).then((r) => r.text()),
     enabled: !!current,
   });
   const [compare, setCompare] = useState<string[]>([]);
@@ -228,7 +365,7 @@ export function SkillDetailPage() {
       </div>
       <div className="mb-6 flex flex-wrap items-start gap-4">
         <SkillGlyph name={s.name} size={48} />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[16rem] flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[22px] font-semibold tracking-tight">{s.displayName}</h1>
             <StatusPill status={s.status} />
@@ -268,7 +405,9 @@ export function SkillDetailPage() {
       )}
       <Tabs
         value={tab}
-        onValueChange={(v) => navigate({ to: '/skills/$name', params: { name }, search: { tab: v }, replace: true })}
+        onValueChange={(v) =>
+          navigate({ to: '/skills/$name', params: { name }, search: { tab: v }, replace: true })
+        }
         tabs={[
           { value: 'overview', label: t('skills.tabs.overview') },
           { value: 'files', label: t('skills.tabs.files'), count: current?.fileCount },
@@ -278,11 +417,15 @@ export function SkillDetailPage() {
         ]}
       >
         <TabPanel value="overview">
-          <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-            <Card className="px-6 py-5">{readme.data ? <Markdown>{readme.data}</Markdown> : <Skeleton className="h-48" />}</Card>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+            <Card className="px-6 py-5">
+              {readme.data ? <Markdown>{readme.data}</Markdown> : <Skeleton className="h-48" />}
+            </Card>
             <div className="space-y-4">
               <Card className="p-4">
-                <div className="mb-2 text-[12px] font-medium text-subtle uppercase">{t('skills.teamsUsing')}</div>
+                <div className="mb-2 text-[12px] font-medium text-subtle uppercase">
+                  {t('skills.teamsUsing')}
+                </div>
                 {s.teams?.length ? (
                   <div className="flex flex-wrap gap-1.5">
                     {s.teams.map((tm) => (
@@ -298,7 +441,9 @@ export function SkillDetailPage() {
                 )}
                 {s.suites.length > 0 && (
                   <>
-                    <div className="mt-4 mb-2 text-[12px] font-medium text-subtle uppercase">{t('skills.inSuites')}</div>
+                    <div className="mt-4 mb-2 text-[12px] font-medium text-subtle uppercase">
+                      {t('skills.inSuites')}
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {s.suites.map((su) => (
                         <Link key={su.id} to="/suites/$ns/$name" params={{ ns: su.namespace, name: su.name }}>
@@ -311,23 +456,50 @@ export function SkillDetailPage() {
               </Card>
               {current && (
                 <Card className="space-y-2 p-4 text-[12.5px]">
-                  <div className="mb-1 text-[12px] font-medium text-subtle uppercase">{t('skills.provenance')}</div>
+                  <div className="mb-1 text-[12px] font-medium text-subtle uppercase">
+                    {t('skills.provenance')}
+                  </div>
                   <Row label={t('common.version')} value={`v${current.version}`} />
-                  <Row label={t('common.files')} value={`${current.fileCount} · ${formatBytes(current.totalSize)}`} />
-                  {typeof current.frontmatter.license === 'string' && <Row label={t('skills.license')} value={current.frontmatter.license} />}
+                  <Row
+                    label={t('common.files')}
+                    value={`${current.fileCount} · ${formatBytes(current.totalSize)}`}
+                  />
+                  {typeof current.frontmatter.license === 'string' && (
+                    <Row label={t('skills.license')} value={current.frontmatter.license} />
+                  )}
                   {current.provenance.url ? (
                     <Row
                       label={t('skills.source')}
                       value={
-                        <a href={String(current.provenance.url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent">
-                          {String(current.provenance.url).replace(/^https?:\/\//, '').slice(0, 40)} <ExternalLink className="h-3 w-3" />
+                        <a
+                          href={String(current.provenance.url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-accent"
+                        >
+                          {String(current.provenance.url)
+                            .replace(/^https?:\/\//, '')
+                            .slice(0, 40)}{' '}
+                          <ExternalLink className="h-3 w-3" />
                         </a>
                       }
                     />
                   ) : null}
-                  {current.provenance.commit ? <Row label={t('skills.commit')} value={<code className="font-mono">{String(current.provenance.commit).slice(0, 10)}</code>} /> : null}
-                  <Row label="sha256" value={<code className="font-mono">{current.archiveDigest.slice(0, 12)}…</code>} />
-                  {current.publishedAt && <Row label={t('status.approved')} value={formatDateTime(current.publishedAt)} />}
+                  {current.provenance.commit ? (
+                    <Row
+                      label={t('skills.commit')}
+                      value={
+                        <code className="font-mono">{String(current.provenance.commit).slice(0, 10)}</code>
+                      }
+                    />
+                  ) : null}
+                  <Row
+                    label="sha256"
+                    value={<code className="font-mono">{current.archiveDigest.slice(0, 12)}…</code>}
+                  />
+                  {current.publishedAt && (
+                    <Row label={t('status.approved')} value={formatDateTime(current.publishedAt)} />
+                  )}
                   {current.transformations.length > 0 && (
                     <div className="pt-1">
                       <div className="text-subtle">{t('skills.transformations')}</div>
@@ -343,7 +515,13 @@ export function SkillDetailPage() {
             </div>
           </div>
         </TabPanel>
-        <TabPanel value="files">{version.data ? <FilesBrowser skill={name} version={version.data.version} files={version.data.files} /> : <Skeleton className="h-96" />}</TabPanel>
+        <TabPanel value="files">
+          {version.data ? (
+            <FilesBrowser skill={name} version={version.data.version} files={version.data.files} />
+          ) : (
+            <Skeleton className="h-96" />
+          )}
+        </TabPanel>
         <TabPanel value="versions">
           <Card className="overflow-hidden">
             <CardHeader
@@ -354,7 +532,11 @@ export function SkillDetailPage() {
                   disabled={compare.length !== 2}
                   icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
                   onClick={() => {
-                    const [a, b] = [...compare].sort((x, y) => s.versions.findIndex((v) => v.version === y) - s.versions.findIndex((v) => v.version === x));
+                    const [a, b] = [...compare].sort(
+                      (x, y) =>
+                        s.versions.findIndex((v) => v.version === y) -
+                        s.versions.findIndex((v) => v.version === x),
+                    );
                     void navigate({ to: '/skills/$name/diff', params: { name }, search: { from: a, to: b } });
                   }}
                 >
@@ -363,28 +545,48 @@ export function SkillDetailPage() {
               }
             />
             {s.versions.map((v) => (
-              <div key={v.id} className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0 hover:bg-panel-hover">
+              <div
+                key={v.id}
+                className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0 hover:bg-panel-hover"
+              >
                 <input
                   type="checkbox"
                   aria-label={`compare ${v.version}`}
                   checked={compare.includes(v.version)}
-                  onChange={(e) => setCompare((c) => (e.target.checked ? [...c, v.version].slice(-2) : c.filter((x) => x !== v.version)))}
+                  onChange={(e) =>
+                    setCompare((c) =>
+                      e.target.checked ? [...c, v.version].slice(-2) : c.filter((x) => x !== v.version),
+                    )
+                  }
                   className="accent-[var(--accent)]"
                 />
                 <GitCommit className="h-4 w-4 text-subtle" />
-                <Link to="/skills/$name/versions/$version" params={{ name, version: v.version }} search={{ file: undefined }} className="font-mono font-medium hover:text-accent">
+                <Link
+                  to="/skills/$name/versions/$version"
+                  params={{ name, version: v.version }}
+                  search={{ file: undefined }}
+                  className="font-mono font-medium hover:text-accent"
+                >
                   v{v.version}
                 </Link>
                 <StatusPill status={v.status} />
                 <RiskBadge level={v.riskLevel} score={v.riskScore} />
-                <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted">{v.statusReason ?? v.changelog ?? ''}</span>
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted">
+                  {v.statusReason ?? v.changelog ?? ''}
+                </span>
                 <span className="hidden text-[12px] text-subtle md:inline">{v.submittedBy?.name}</span>
                 <span className="w-24 text-right text-[12px] text-subtle">{relativeTime(v.createdAt)}</span>
               </div>
             ))}
           </Card>
         </TabPanel>
-        <TabPanel value="security">{version.data ? <SecurityReport detail={version.data} skill={name} /> : <Skeleton className="h-64" />}</TabPanel>
+        <TabPanel value="security">
+          {version.data ? (
+            <SecurityReport detail={version.data} skill={name} />
+          ) : (
+            <Skeleton className="h-64" />
+          )}
+        </TabPanel>
         <TabPanel value="installs">
           <InstallsChart name={name} />
         </TabPanel>
@@ -436,13 +638,21 @@ export function VersionPage() {
           <VersionActions name={name} v={d} />
         </div>
       </div>
-      {d.statusReason && <div className="mb-4 rounded-lg border border-border bg-bg-subtle px-3 py-2 text-[13px] text-muted">{d.statusReason}</div>}
+      {d.statusReason && (
+        <div className="mb-4 rounded-lg border border-border bg-bg-subtle px-3 py-2 text-[13px] text-muted">
+          {d.statusReason}
+        </div>
+      )}
       <Tabs
         value={tab}
         onValueChange={setTab}
         tabs={[
           { value: 'files', label: t('skills.tabs.files'), count: d.files.length },
-          { value: 'security', label: t('skills.tabs.security'), count: d.scans.reduce((n, s) => n + s.findings.filter((f) => f.severity !== 'info').length, 0) },
+          {
+            value: 'security',
+            label: t('skills.tabs.security'),
+            count: d.scans.reduce((n, s) => n + s.findings.filter((f) => f.severity !== 'info').length, 0),
+          },
         ]}
       >
         <TabPanel value="files">
@@ -470,22 +680,47 @@ export function SkillDiffPage() {
   const diff = useQuery({
     queryKey: ['diff', name, search.from, search.to],
     queryFn: () =>
-      api.get<{ from: string; to: string; changes: { path: string; change: string; binary: boolean; patch: string | null }[]; frontmatterChanged: boolean }>(
-        `skills/${name}/diff?from=${search.from}&to=${search.to}`,
-      ),
+      api.get<{
+        from: string;
+        to: string;
+        changes: { path: string; change: string; binary: boolean; patch: string | null }[];
+        frontmatterChanged: boolean;
+      }>(`skills/${name}/diff?from=${search.from}&to=${search.to}`),
     enabled: !!search.from && !!search.to,
   });
-  return <DiffSummary name={name} data={diff.data} loading={diff.isLoading} title={t('skills.diffTitle', { from: search.from, to: search.to })} />;
+  return (
+    <DiffSummary
+      name={name}
+      data={diff.data}
+      loading={diff.isLoading}
+      title={t('skills.diffTitle', { from: search.from, to: search.to })}
+    />
+  );
 }
 
-export function DiffSummary({ name, data, loading, title }: { name: string; data?: { changes: { path: string; change: string; binary: boolean; patch: string | null }[] }; loading?: boolean; title?: string }) {
+export function DiffSummary({
+  name,
+  data,
+  loading,
+  title,
+}: {
+  name: string;
+  data?: { changes: { path: string; change: string; binary: boolean; patch: string | null }[] };
+  loading?: boolean;
+  title?: string;
+}) {
   const { t } = useTranslation();
   if (loading) return <Skeleton className="h-64" />;
   return (
     <div className="space-y-3">
       {title && (
         <div className="mb-4 flex items-center gap-2">
-          <Link to="/skills/$name" params={{ name }} search={{ tab: 'versions' }} className="text-[12.5px] text-subtle hover:text-fg">
+          <Link
+            to="/skills/$name"
+            params={{ name }}
+            search={{ tab: 'versions' }}
+            className="text-[12.5px] text-subtle hover:text-fg"
+          >
             {name}
           </Link>
           <span className="text-subtle">/</span>
@@ -496,10 +731,16 @@ export function DiffSummary({ name, data, loading, title }: { name: string; data
       {data?.changes.map((c) => (
         <Card key={c.path} className="overflow-hidden">
           <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-            <Badge tone={c.change === 'added' ? 'ok' : c.change === 'removed' ? 'danger' : 'warn'}>{t(`skills.${c.change}`)}</Badge>
+            <Badge tone={c.change === 'added' ? 'ok' : c.change === 'removed' ? 'danger' : 'warn'}>
+              {t(`skills.${c.change}`)}
+            </Badge>
             <code className="font-mono text-[12.5px]">{c.path}</code>
           </div>
-          {c.binary ? <p className="px-4 py-3 text-[12.5px] text-muted">{t('skills.binaryFile')}</p> : c.patch && <DiffView patch={c.patch} />}
+          {c.binary ? (
+            <p className="px-4 py-3 text-[12.5px] text-muted">{t('skills.binaryFile')}</p>
+          ) : (
+            c.patch && <DiffView patch={c.patch} />
+          )}
         </Card>
       ))}
     </div>

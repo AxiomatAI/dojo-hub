@@ -16,7 +16,12 @@ function parseDeps(path: string, text: string): Dep[] {
       const pj = JSON.parse(text) as Record<string, Record<string, string> | undefined>;
       for (const key of ['dependencies', 'devDependencies', 'optionalDependencies']) {
         for (const [name, range] of Object.entries(pj[key] ?? {})) {
-          deps.push({ ecosystem: 'npm', name, version: /^\d+\.\d+\.\d+$/.test(range) ? range : undefined, file: path });
+          deps.push({
+            ecosystem: 'npm',
+            name,
+            version: /^\d+\.\d+\.\d+$/.test(range) ? range : undefined,
+            file: path,
+          });
         }
       }
       const scripts = (pj.scripts ?? {}) as Record<string, string>;
@@ -29,7 +34,8 @@ function parseDeps(path: string, text: string): Dep[] {
   } else if (base === 'requirements.txt') {
     for (const line of text.split('\n')) {
       const m = /^\s*([A-Za-z0-9_.-]+)\s*(==\s*([\w.]+))?/.exec(line);
-      if (m && !line.trim().startsWith('#')) deps.push({ ecosystem: 'PyPI', name: m[1]!, version: m[3], file: path });
+      if (m && !line.trim().startsWith('#'))
+        deps.push({ ecosystem: 'PyPI', name: m[1]!, version: m[3], file: path });
     }
   } else if (base === 'pyproject.toml') {
     const block = /dependencies\s*=\s*\[([\s\S]*?)\]/.exec(text)?.[1] ?? '';
@@ -68,7 +74,10 @@ export function dependenciesAnalyzer(opts: DependencyOptions = { osv: false }): 
           analyzer: 'dependencies',
           rule: 'deps.declared',
           severity: 'info',
-          message: `Declares ${real.length} third-party dependencies: ${real.slice(0, 10).map((d) => d.name).join(', ')}${real.length > 10 ? '…' : ''}`,
+          message: `Declares ${real.length} third-party dependencies: ${real
+            .slice(0, 10)
+            .map((d) => d.name)
+            .join(', ')}${real.length > 10 ? '…' : ''}`,
         });
       }
       if (opts.osv && real.some((d) => d.version)) {
@@ -78,7 +87,9 @@ export function dependenciesAnalyzer(opts: DependencyOptions = { osv: false }): 
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
-              queries: real.filter((d) => d.version).map((d) => ({ package: { name: d.name, ecosystem: d.ecosystem }, version: d.version })),
+              queries: real
+                .filter((d) => d.version)
+                .map((d) => ({ package: { name: d.name, ecosystem: d.ecosystem }, version: d.version })),
             }),
             signal: AbortSignal.timeout(10_000),
           });
@@ -92,13 +103,21 @@ export function dependenciesAnalyzer(opts: DependencyOptions = { osv: false }): 
                   analyzer: 'dependencies',
                   rule: 'deps.vulnerable',
                   severity: 'high',
-                  message: `${d.name}@${d.version} has known vulnerabilities: ${vulns.map((v) => v.id).slice(0, 5).join(', ')}`,
+                  message: `${d.name}@${d.version} has known vulnerabilities: ${vulns
+                    .map((v) => v.id)
+                    .slice(0, 5)
+                    .join(', ')}`,
                   file: d.file,
                 });
               }
             });
         } catch (err) {
-          return { analyzer: 'dependencies', status: 'done', findings, error: `OSV lookup failed: ${(err as Error).message}` };
+          return {
+            analyzer: 'dependencies',
+            status: 'done',
+            findings,
+            error: `OSV lookup failed: ${(err as Error).message}`,
+          };
         }
       }
       return { analyzer: 'dependencies', status: 'done', findings, report: { dependencies: real } };

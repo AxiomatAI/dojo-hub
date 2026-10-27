@@ -1,14 +1,13 @@
+import { namespace, skill, skillVersion } from '@dojohub/db';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Env } from '../auth/actor';
 import type { AppContext } from '../context';
-import { getOrgId } from '../services/org';
-import { recordInstall } from '../services/stats';
 import { getNamespace } from '../services/namespaces';
-import { loadArchive } from '../services/skills';
-import { namespace, skill, skillVersion } from '@dojohub/db';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { getOrgId } from '../services/org';
+import { installableVersion, loadArchive } from '../services/skills';
+import { recordInstall } from '../services/stats';
 import { type Bundle, canDownload, findSkill, findSuite, suiteBundle, teamBundle } from './resolve';
-import { installableVersion } from '../services/skills';
 
 export const WELL_KNOWN_SCHEMA = 'https://schemas.agentskills.io/discovery/0.2.0/schema.json';
 
@@ -35,8 +34,10 @@ const INDEX_PATHS = ['/.well-known/agent-skills/index.json', '/.well-known/skill
 export function wellKnownRoutes(ctx: AppContext) {
   const app = new Hono<Env>();
   const base = () => ctx.config.DOJO_BASE_URL;
-  const json = (c: { json: (b: unknown, s?: number, h?: Record<string, string>) => Response }, body: unknown) =>
-    c.json(body, 200, { 'access-control-allow-origin': '*', 'cache-control': 'no-cache' });
+  const json = (
+    c: { json: (b: unknown, s?: number, h?: Record<string, string>) => Response },
+    body: unknown,
+  ) => c.json(body, 200, { 'access-control-allow-origin': '*', 'cache-control': 'no-cache' });
 
   for (const suffix of INDEX_PATHS) {
     app.get(`/t/:team${suffix}`, async (c) => {
@@ -48,14 +49,19 @@ export function wellKnownRoutes(ctx: AppContext) {
     app.get(`/s/:ns/:skill${suffix}`, async (c) => {
       const orgId = await getOrgId(ctx);
       const found = await findSkill(ctx, orgId, c.req.param('ns'), c.req.param('skill'));
-      if (!found || !(await canDownload(ctx, c.get('actor'), found.namespace))) return c.json({ error: 'not found' }, 404);
+      if (!found || !(await canDownload(ctx, c.get('actor'), found.namespace)))
+        return c.json({ error: 'not found' }, 404);
       const v = await installableVersion(ctx, found.skill.id);
-      return json(c, indexFor(base(), v ? [{ skill: found.skill, version: v, namespace: found.namespace }] : []));
+      return json(
+        c,
+        indexFor(base(), v ? [{ skill: found.skill, version: v, namespace: found.namespace }] : []),
+      );
     });
     app.get(`/suites/:ns/:suite${suffix}`, async (c) => {
       const orgId = await getOrgId(ctx);
       const found = await findSuite(ctx, orgId, c.req.param('ns'), c.req.param('suite'));
-      if (!found || !(await canDownload(ctx, c.get('actor'), found.namespace))) return c.json({ error: 'not found' }, 404);
+      if (!found || !(await canDownload(ctx, c.get('actor'), found.namespace)))
+        return c.json({ error: 'not found' }, 404);
       return json(c, indexFor(base(), await suiteBundle(ctx, found.suite.id)));
     });
     app.get(suffix, async (c) => {
@@ -63,16 +69,27 @@ export function wellKnownRoutes(ctx: AppContext) {
       const nsRows = await ctx.db
         .select()
         .from(namespace)
-        .where(and(eq(namespace.orgId, orgId), eq(namespace.visibility, 'public'), isNull(namespace.archivedAt)));
+        .where(
+          and(eq(namespace.orgId, orgId), eq(namespace.visibility, 'public'), isNull(namespace.archivedAt)),
+        );
       const bundles: Bundle[] = [];
       if (nsRows.length) {
         const skills = await ctx.db
           .select()
           .from(skill)
-          .where(and(inArray(skill.namespaceId, nsRows.map((n) => n.id)), isNull(skill.archivedAt)));
+          .where(
+            and(
+              inArray(
+                skill.namespaceId,
+                nsRows.map((n) => n.id),
+              ),
+              isNull(skill.archivedAt),
+            ),
+          );
         for (const s of skills) {
           const v = await installableVersion(ctx, s.id);
-          if (v) bundles.push({ skill: s, version: v, namespace: nsRows.find((n) => n.id === s.namespaceId)! });
+          if (v)
+            bundles.push({ skill: s, version: v, namespace: nsRows.find((n) => n.id === s.namespaceId)! });
         }
       }
       return json(c, indexFor(base(), bundles));
@@ -87,7 +104,8 @@ export function wellKnownRoutes(ctx: AppContext) {
       .innerJoin(skill, eq(skill.id, skillVersion.skillId))
       .innerJoin(namespace, eq(namespace.id, skill.namespaceId))
       .where(eq(skillVersion.id, id));
-    if (!row || !['approved', 'deprecated'].includes(row.v.status)) return c.json({ error: 'not found' }, 404);
+    if (!row || !['approved', 'deprecated'].includes(row.v.status))
+      return c.json({ error: 'not found' }, 404);
     if (!(await canDownload(ctx, c.get('actor'), row.ns))) return c.json({ error: 'not found' }, 404);
     const archive = await loadArchive(ctx, row.v);
     await recordInstall(ctx, {

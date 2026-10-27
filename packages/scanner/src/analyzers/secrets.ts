@@ -3,22 +3,48 @@ import { lineOf, textFiles } from '../util';
 
 const SECRET_PATTERNS: { id: string; re: RegExp; message: string }[] = [
   { id: 'aws_access_key', re: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/g, message: 'AWS access key id' },
-  { id: 'github_token', re: /\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b|\bgithub_pat_[A-Za-z0-9_]{60,}\b/g, message: 'GitHub token' },
+  {
+    id: 'github_token',
+    re: /\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b|\bgithub_pat_[A-Za-z0-9_]{60,}\b/g,
+    message: 'GitHub token',
+  },
   { id: 'gitlab_token', re: /\bglpat-[A-Za-z0-9_-]{20,}\b/g, message: 'GitLab token' },
   { id: 'slack_token', re: /\bxox[abpors]-[A-Za-z0-9-]{10,}\b/g, message: 'Slack token' },
-  { id: 'slack_webhook', re: /https:\/\/hooks\.slack\.com\/services\/T[A-Z0-9]+\/B[A-Z0-9]+\/[A-Za-z0-9]+/g, message: 'Slack webhook URL' },
+  {
+    id: 'slack_webhook',
+    re: /https:\/\/hooks\.slack\.com\/services\/T[A-Z0-9]+\/B[A-Z0-9]+\/[A-Za-z0-9]+/g,
+    message: 'Slack webhook URL',
+  },
   { id: 'openai_key', re: /\bsk-(proj-)?[A-Za-z0-9_-]{32,}\b/g, message: 'OpenAI API key' },
   { id: 'anthropic_key', re: /\bsk-ant-[A-Za-z0-9_-]{32,}\b/g, message: 'Anthropic API key' },
   { id: 'google_api_key', re: /\bAIza[0-9A-Za-z_-]{35}\b/g, message: 'Google API key' },
   { id: 'stripe_key', re: /\b(sk|rk)_live_[0-9a-zA-Z]{24,}\b/g, message: 'Stripe live key' },
-  { id: 'private_key', re: /-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY( BLOCK)?-----/g, message: 'Private key' },
-  { id: 'jwt', re: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, message: 'JSON Web Token' },
-  { id: 'azure_conn', re: /DefaultEndpointsProtocol=https;AccountName=[^;]+;AccountKey=[A-Za-z0-9+/=]{40,}/g, message: 'Azure storage connection string' },
-  { id: 'db_url_password', re: /\b(postgres(ql)?|mysql|mongodb(\+srv)?|redis|amqp):\/\/[^:\s/]+:[^@\s/]{6,}@/g, message: 'Database URL with password' },
+  {
+    id: 'private_key',
+    re: /-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY( BLOCK)?-----/g,
+    message: 'Private key',
+  },
+  {
+    id: 'jwt',
+    re: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
+    message: 'JSON Web Token',
+  },
+  {
+    id: 'azure_conn',
+    re: /DefaultEndpointsProtocol=https;AccountName=[^;]+;AccountKey=[A-Za-z0-9+/=]{40,}/g,
+    message: 'Azure storage connection string',
+  },
+  {
+    id: 'db_url_password',
+    re: /\b(postgres(ql)?|mysql|mongodb(\+srv)?|redis|amqp):\/\/[^:\s/]+:[^@\s/]{6,}@/g,
+    message: 'Database URL with password',
+  },
 ];
 
-const ASSIGN_RE = /\b([A-Z0-9_]*(SECRET|TOKEN|PASSWORD|PASSWD|API_?KEY|PRIVATE_KEY)[A-Z0-9_]*)\s*[:=]\s*["']?([^\s"'`]{12,})["']?/g;
-const PLACEHOLDER = /^(x+|\*+|<.*>|\$\{?.*\}?|your[_-]|example|changeme|placeholder|dummy|test|xxx|\.\.\.|null|none|todo)/i;
+const ASSIGN_RE =
+  /\b([A-Z0-9_]*(SECRET|TOKEN|PASSWORD|PASSWD|API_?KEY|PRIVATE_KEY)[A-Z0-9_]*)\s*[:=]\s*["']?([^\s"'`]{12,})["']?/g;
+const PLACEHOLDER =
+  /^(x+|\*+|<.*>|\$\{?.*\}?|your[_-]|example|changeme|placeholder|dummy|test|xxx|\.\.\.|null|none|todo)/i;
 
 function entropy(s: string): number {
   const freq = new Map<string, number>();

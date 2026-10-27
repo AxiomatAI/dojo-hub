@@ -1,5 +1,5 @@
 import type { SetupStatus } from '@dojohub/contract';
-import { type Locale, LOCALE_LABELS, LOCALES } from '@dojohub/i18n';
+import { LOCALE_LABELS, LOCALES, type Locale } from '@dojohub/i18n';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react';
@@ -17,7 +17,9 @@ function AuthFrame({ children, footer }: { children: ReactNode; footer?: ReactNo
     <div className="relative flex min-h-full items-center justify-center overflow-hidden px-4 py-12">
       <div
         className="pointer-events-none absolute inset-0 opacity-60"
-        style={{ background: 'radial-gradient(60rem 30rem at 50% -10%, var(--accent-soft), transparent 70%)' }}
+        style={{
+          background: 'radial-gradient(60rem 30rem at 50% -10%, var(--accent-soft), transparent 70%)',
+        }}
       />
       <div className="relative w-full max-w-[400px]">
         <div className="mb-8 flex items-center justify-center gap-2.5">
@@ -25,7 +27,9 @@ function AuthFrame({ children, footer }: { children: ReactNode; footer?: ReactNo
           <span className="text-lg font-semibold tracking-tight">DojoHub</span>
           <span className="text-subtle">道場</span>
         </div>
-        <div className="animate-in rounded-2xl border border-border bg-panel p-6 shadow-float">{children}</div>
+        <div className="animate-in rounded-2xl border border-border bg-panel p-6 shadow-float">
+          {children}
+        </div>
         {footer && <div className="mt-4 text-center text-[12px] text-subtle">{footer}</div>}
       </div>
     </div>
@@ -55,7 +59,10 @@ export function LoginPage() {
   const search = useSearch({ from: '/login' });
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const status = useQuery({ queryKey: ['setup-status'], queryFn: () => api.get<SetupStatus>('setup/status') });
+  const status = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: () => api.get<SetupStatus>('setup/status'),
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(search.error ?? null);
@@ -102,11 +109,20 @@ export function LoginPage() {
   const providers = status.data?.ssoProviders ?? [];
   return (
     <AuthFrame footer={<LanguagePicker />}>
-      <h1 className="text-[17px] font-semibold">{t('auth.signInTitle', { org: status.data?.orgName ?? 'DojoHub' })}</h1>
+      <h1 className="text-[17px] font-semibold">
+        {t('auth.signInTitle', { org: status.data?.orgName ?? 'DojoHub' })}
+      </h1>
       <p className="mt-1 text-[13px] text-muted">{t('auth.signInSubtitle')}</p>
       <div className="mt-5 space-y-2">
         {providers.map((p) => (
-          <Button key={p.providerId} size="lg" className="w-full" loading={busy === p.providerId} icon={<ShieldCheck className="h-4 w-4" />} onClick={() => sso({ providerId: p.providerId })}>
+          <Button
+            key={p.providerId}
+            size="lg"
+            className="w-full"
+            loading={busy === p.providerId}
+            icon={<ShieldCheck className="h-4 w-4" />}
+            onClick={() => sso({ providerId: p.providerId })}
+          >
             {t('auth.withSso', { name: p.name })}
           </Button>
         ))}
@@ -119,8 +135,20 @@ export function LoginPage() {
             void sso({ email });
           }}
         >
-          <Input type="email" placeholder={t('auth.workEmail')} value={email} onChange={(e) => setEmail(e.target.value)} className="h-9" />
-          <Button type="submit" size="lg" variant="outline" loading={busy === 'sso'} aria-label={t('auth.ssoByEmail')}>
+          <Input
+            type="email"
+            placeholder={t('auth.workEmail')}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-9"
+          />
+          <Button
+            type="submit"
+            size="lg"
+            variant="outline"
+            loading={busy === 'sso'}
+            aria-label={t('auth.ssoByEmail')}
+          >
             <ArrowRight className="h-4 w-4" />
           </Button>
         </form>
@@ -136,18 +164,43 @@ export function LoginPage() {
           )}
           <form onSubmit={local} className={providers.length ? 'space-y-3' : 'mt-5 space-y-3'}>
             <Field label={t('common.email')}>
-              <Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} className="h-9" />
+              <Input
+                type="email"
+                autoComplete="username"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-9"
+              />
             </Field>
             <Field label={t('common.password')}>
-              <Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className="h-9" />
+              <Input
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-9"
+              />
             </Field>
-            <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy === 'local'} icon={<KeyRound className="h-4 w-4" />}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              className="w-full"
+              loading={busy === 'local'}
+              icon={<KeyRound className="h-4 w-4" />}
+            >
               {busy === 'local' ? t('auth.signingIn') : t('auth.signIn')}
             </Button>
           </form>
         </>
       )}
-      {error && <p className="mt-3 rounded-md bg-danger/10 px-3 py-2 text-[12.5px] text-danger">{error === 'sso' ? t('common.error') : error}</p>}
+      {error && (
+        <p className="mt-3 rounded-md bg-danger/10 px-3 py-2 text-[12.5px] text-danger">
+          {error === 'sso' ? t('common.error') : error}
+        </p>
+      )}
     </AuthFrame>
   );
 }
@@ -167,7 +220,12 @@ export function SetupPage() {
     setBusy(true);
     setError(null);
     try {
-      await api.post('setup', { token: search.token, orgName, admin: { name, email, password }, locale: i18n.language });
+      await api.post('setup', {
+        token: search.token,
+        orgName,
+        admin: { name, email, password },
+        locale: i18n.language,
+      });
       const res = await authClient.signIn.email({ email, password });
       if (res.error) throw new Error(res.error.message);
       window.location.href = '/onboarding';
@@ -183,7 +241,14 @@ export function SetupPage() {
       <p className="mt-1 text-[13px] text-muted">{t('setup.subtitle')}</p>
       <form onSubmit={submit} className="mt-5 space-y-3">
         <Field label={t('setup.orgName')}>
-          <Input required autoFocus value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder={t('setup.orgNamePlaceholder')} className="h-9" />
+          <Input
+            required
+            autoFocus
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+            placeholder={t('setup.orgNamePlaceholder')}
+            className="h-9"
+          />
         </Field>
         <Field label={t('common.language')}>
           <Select value={i18n.language} onChange={(e) => setLocale(e.target.value as Locale)} className="h-9">
@@ -202,10 +267,24 @@ export function SetupPage() {
           <Input required value={name} onChange={(e) => setName(e.target.value)} className="h-9" />
         </Field>
         <Field label={t('common.email')}>
-          <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="h-9" />
+          <Input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-9"
+          />
         </Field>
         <Field label={t('common.password')} hint={t('setup.passwordHint')}>
-          <Input type="password" required minLength={10} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-9" />
+          <Input
+            type="password"
+            required
+            minLength={10}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="h-9"
+          />
         </Field>
         <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>
           {t('setup.finish')}

@@ -1,10 +1,21 @@
-import { DEFAULT_POLICY, type PolicyDocument, policyDocumentSchema, RISK_LEVELS, type RiskLevel, riskRank } from '@dojohub/contract';
+import {
+  DEFAULT_POLICY,
+  type PolicyDocument,
+  policyDocumentSchema,
+  RISK_LEVELS,
+  type RiskLevel,
+  riskRank,
+} from '@dojohub/contract';
 import { policy } from '@dojohub/db';
 import { and, eq, isNull } from 'drizzle-orm';
 import { compileExpression } from 'filtrex';
 import type { AppContext } from '../context';
 
-export async function loadPolicy(ctx: AppContext, orgId: string, namespaceId: string | null): Promise<PolicyDocument> {
+export async function loadPolicy(
+  ctx: AppContext,
+  orgId: string,
+  namespaceId: string | null,
+): Promise<PolicyDocument> {
   if (namespaceId) {
     const [ns] = await ctx.db
       .select()
@@ -68,7 +79,9 @@ export function evaluateCondition(expr: string | undefined, facts: PolicyFacts):
 
 export function validateCondition(expr: string): string | null {
   try {
-    compileExpression(expr.replace(LEVEL_LITERAL, '1'), { extraFunctions: { has_asset: () => true, has_finding: () => true } });
+    compileExpression(expr.replace(LEVEL_LITERAL, '1'), {
+      extraFunctions: { has_asset: () => true, has_finding: () => true },
+    });
     return null;
   } catch (err) {
     return (err as Error).message;

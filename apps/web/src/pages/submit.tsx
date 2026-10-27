@@ -1,5 +1,5 @@
-import type { NamespaceDto } from '@dojohub/contract';
 import { markdown } from '@codemirror/lang-markdown';
+import type { NamespaceDto } from '@dojohub/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
@@ -9,7 +9,19 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { FindingList } from '../components/dojo';
 import { useMe } from '../components/shell';
-import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Segmented, Select, Spinner, Textarea } from '../components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  Field,
+  Input,
+  PageHeader,
+  Segmented,
+  Select,
+  Spinner,
+  Textarea,
+} from '../components/ui';
 import { api } from '../lib/api';
 import { errorMessage } from '../lib/hooks';
 import { cn, formatBytes } from '../lib/utils';
@@ -22,7 +34,15 @@ interface Validation {
     issues: { level: string; code: string; message: string }[];
     externalRefs: string[];
     files: { path: string; size: number }[];
-    findings: { analyzer: string; rule: string; severity: 'info' | 'low' | 'medium' | 'high' | 'critical'; message: string; file?: string; line?: number; evidence?: string }[];
+    findings: {
+      analyzer: string;
+      rule: string;
+      severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+      message: string;
+      file?: string;
+      line?: number;
+      evidence?: string;
+    }[];
   }[];
   suites: { name: string; version?: string; skills: string[] }[];
   warnings: string[];
@@ -45,7 +65,15 @@ function useDark() {
   return dark;
 }
 
-function ValidationPanel({ v, selected, onSelect }: { v: Validation; selected: string | null; onSelect: (p: string) => void }) {
+function ValidationPanel({
+  v,
+  selected,
+  onSelect,
+}: {
+  v: Validation;
+  selected: string | null;
+  onSelect: (p: string) => void;
+}) {
   const { t } = useTranslation();
   return (
     <div className="space-y-3">
@@ -53,14 +81,26 @@ function ValidationPanel({ v, selected, onSelect }: { v: Validation; selected: s
       {v.skills.map((s) => {
         const errors = s.issues.filter((i) => i.level === 'error');
         return (
-          <Card key={s.path} className={cn('overflow-hidden', v.skills.length > 1 && selected === s.path && 'ring-2 ring-[var(--ring)]')}>
+          <Card
+            key={s.path}
+            className={cn(
+              'overflow-hidden',
+              v.skills.length > 1 && selected === s.path && 'ring-2 ring-[var(--ring)]',
+            )}
+          >
             <button type="button" className="w-full text-left" onClick={() => onSelect(s.path)}>
               <CardHeader
                 title={
                   <span className="flex items-center gap-2">
                     <code className="font-mono">{s.name}</code>
-                    {errors.length ? <Badge tone="danger">{errors.length} errors</Badge> : <Badge tone="ok">valid</Badge>}
-                    <span className="text-[12px] font-normal text-subtle">{t('count.files', { count: s.files.length })}</span>
+                    {errors.length ? (
+                      <Badge tone="danger">{errors.length} errors</Badge>
+                    ) : (
+                      <Badge tone="ok">valid</Badge>
+                    )}
+                    <span className="text-[12px] font-normal text-subtle">
+                      {t('count.files', { count: s.files.length })}
+                    </span>
                   </span>
                 }
                 description={s.description}
@@ -77,7 +117,9 @@ function ValidationPanel({ v, selected, onSelect }: { v: Validation; selected: s
             )}
             {s.findings.length > 0 && (
               <div>
-                <div className="px-4 pt-2 text-[12px] font-medium text-subtle uppercase">{t('submit.preScan')}</div>
+                <div className="px-4 pt-2 text-[12px] font-medium text-subtle uppercase">
+                  {t('submit.preScan')}
+                </div>
                 <FindingList findings={s.findings} />
               </div>
             )}
@@ -103,7 +145,8 @@ function UploadMode({ initialNamespace }: { initialNamespace?: string }) {
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (!ns && namespaces.length) setNs(initialNamespace ?? namespaces.find((n) => n.kind === 'team')?.slug ?? namespaces[0]!.slug);
+    if (!ns && namespaces.length)
+      setNs(initialNamespace ?? namespaces.find((n) => n.kind === 'team')?.slug ?? namespaces[0]!.slug);
   }, [namespaces, ns, initialNamespace]);
 
   const pick = async (f: File) => {
@@ -111,7 +154,9 @@ function UploadMode({ initialNamespace }: { initialNamespace?: string }) {
     setValidation(null);
     setValidating(true);
     try {
-      const v = await api.post<Validation>('skills/validate', f, { 'content-type': 'application/octet-stream' });
+      const v = await api.post<Validation>('skills/validate', f, {
+        'content-type': 'application/octet-stream',
+      });
       setValidation(v);
       setSelected(v.skills[0]?.path ?? null);
     } catch (err) {
@@ -134,9 +179,15 @@ function UploadMode({ initialNamespace }: { initialNamespace?: string }) {
       if (version) params.set('version', version);
       if (changelog) params.set('changelog', changelog);
       if (selected !== null && (validation?.skills.length ?? 0) > 1) params.set('path', selected);
-      const res = await api.post<{ skill: string; version: string }>(`skills/upload?${params}`, file, { 'content-type': 'application/octet-stream' });
+      const res = await api.post<{ skill: string; version: string }>(`skills/upload?${params}`, file, {
+        'content-type': 'application/octet-stream',
+      });
       toast.success(t('submit.submitted', { name: res.skill, version: res.version }));
-      void navigate({ to: '/skills/$name/versions/$version', params: { name: res.skill, version: res.version }, search: { file: undefined } });
+      void navigate({
+        to: '/skills/$name/versions/$version',
+        params: { name: res.skill, version: res.version },
+        search: { file: undefined },
+      });
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -146,7 +197,7 @@ function UploadMode({ initialNamespace }: { initialNamespace?: string }) {
   const chosen = validation?.skills.find((s) => s.path === selected);
   const hasErrors = chosen?.issues.some((i) => i.level === 'error');
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-4">
         <label
           onDragOver={(e) => {
@@ -162,8 +213,16 @@ function UploadMode({ initialNamespace }: { initialNamespace?: string }) {
         >
           <UploadCloud className="mb-3 h-8 w-8 text-subtle" />
           <div className="font-medium">{file ? file.name : t('submit.dropzone')}</div>
-          <div className="mt-1 text-[12.5px] text-subtle">{file ? formatBytes(file.size) : t('submit.browse')}</div>
-          <input ref={input} type="file" accept=".zip,.tar,.gz,.tgz,.md" className="hidden" onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])} />
+          <div className="mt-1 text-[12.5px] text-subtle">
+            {file ? formatBytes(file.size) : t('submit.browse')}
+          </div>
+          <input
+            ref={input}
+            type="file"
+            accept=".zip,.tar,.gz,.tgz,.md"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])}
+          />
         </label>
         {validating && (
           <div className="flex items-center gap-2 text-muted">
@@ -213,16 +272,31 @@ function SubmitSidebar(props: {
         </Select>
       </Field>
       <Field label={t('submit.version')} hint={t('submit.versionHint')}>
-        <Input value={props.version} onChange={(e) => props.setVersion(e.target.value)} placeholder="1.0.0" className="font-mono" />
+        <Input
+          value={props.version}
+          onChange={(e) => props.setVersion(e.target.value)}
+          placeholder="1.0.0"
+          className="font-mono"
+        />
       </Field>
       <Field label={t('submit.changelog')}>
         <Textarea value={props.changelog} onChange={(e) => props.setChangelog(e.target.value)} rows={3} />
       </Field>
       <div className="flex flex-col gap-2 pt-1">
-        <Button variant="primary" disabled={props.disabled} loading={props.busy === 'submit'} onClick={() => props.onSubmit(true)}>
+        <Button
+          variant="primary"
+          disabled={props.disabled}
+          loading={props.busy === 'submit'}
+          onClick={() => props.onSubmit(true)}
+        >
           {t('submit.submitForReview')}
         </Button>
-        <Button variant="ghost" disabled={props.disabled} loading={props.busy === 'draft'} onClick={() => props.onSubmit(false)}>
+        <Button
+          variant="ghost"
+          disabled={props.disabled}
+          loading={props.busy === 'draft'}
+          onClick={() => props.onSubmit(false)}
+        >
           {t('submit.saveDraft')}
         </Button>
       </div>
@@ -244,21 +318,35 @@ function CreateMode({ initialNamespace }: { initialNamespace?: string }) {
   const [busy, setBusy] = useState<'submit' | 'draft' | null>(null);
   const [validation, setValidation] = useState<Validation | null>(null);
   useEffect(() => {
-    if (!ns && namespaces.length) setNs(namespaces.find((n) => n.kind === 'team')?.slug ?? namespaces[0]!.slug);
+    if (!ns && namespaces.length)
+      setNs(namespaces.find((n) => n.kind === 'team')?.slug ?? namespaces[0]!.slug);
   }, [namespaces, ns]);
   const extensions = useMemo(() => [markdown()], []);
   useEffect(() => {
     const id = setTimeout(() => {
-      api.post<Validation>('skills/validate', { files }).then(setValidation).catch(() => {});
+      api
+        .post<Validation>('skills/validate', { files })
+        .then(setValidation)
+        .catch(() => {});
     }, 600);
     return () => clearTimeout(id);
   }, [files]);
   const submit = async (submitNow: boolean) => {
     setBusy(submitNow ? 'submit' : 'draft');
     try {
-      const res = await api.post<{ skill: string; version: string }>('skills', { namespace: ns, files, version: version || undefined, changelog: changelog || undefined, submit: submitNow });
+      const res = await api.post<{ skill: string; version: string }>('skills', {
+        namespace: ns,
+        files,
+        version: version || undefined,
+        changelog: changelog || undefined,
+        submit: submitNow,
+      });
       toast.success(t('submit.submitted', { name: res.skill, version: res.version }));
-      void navigate({ to: '/skills/$name/versions/$version', params: { name: res.skill, version: res.version }, search: { file: undefined } });
+      void navigate({
+        to: '/skills/$name/versions/$version',
+        params: { name: res.skill, version: res.version },
+        search: { file: undefined },
+      });
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -267,15 +355,25 @@ function CreateMode({ initialNamespace }: { initialNamespace?: string }) {
   };
   const errors = validation?.skills[0]?.issues.filter((i) => i.level === 'error') ?? [];
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-4">
         <Card className="grid overflow-hidden md:grid-cols-[200px_1fr]">
           <div className="border-b border-border bg-bg-subtle/60 p-2 md:border-r md:border-b-0">
             {Object.keys(files)
               .sort((a, b) => (a === 'SKILL.md' ? -1 : b === 'SKILL.md' ? 1 : a.localeCompare(b)))
               .map((p) => (
-                <div key={p} className={cn('group flex items-center gap-1 rounded-md px-2 py-1 text-[12.5px]', active === p ? 'bg-accent-soft text-accent' : 'hover:bg-panel-hover')}>
-                  <button type="button" className="min-w-0 flex-1 truncate text-left font-mono" onClick={() => setActive(p)}>
+                <div
+                  key={p}
+                  className={cn(
+                    'group flex items-center gap-1 rounded-md px-2 py-1 text-[12.5px]',
+                    active === p ? 'bg-accent-soft text-accent' : 'hover:bg-panel-hover',
+                  )}
+                >
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 truncate text-left font-mono"
+                    onClick={() => setActive(p)}
+                  >
                     {p}
                   </button>
                   {p !== 'SKILL.md' && (
@@ -305,14 +403,21 @@ function CreateMode({ initialNamespace }: { initialNamespace?: string }) {
                 setNewPath('');
               }}
             >
-              <Input value={newPath} onChange={(e) => setNewPath(e.target.value)} placeholder="references/notes.md" className="h-7 font-mono text-[11.5px]" />
+              <Input
+                value={newPath}
+                onChange={(e) => setNewPath(e.target.value)}
+                placeholder="references/notes.md"
+                className="h-7 font-mono text-[11.5px]"
+              />
               <Button size="sm" type="submit" aria-label={t('submit.addFile')}>
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </form>
           </div>
           <div className="min-w-0">
-            <div className="border-b border-border px-4 py-2 font-mono text-[12.5px] text-muted">{active}</div>
+            <div className="border-b border-border px-4 py-2 font-mono text-[12.5px] text-muted">
+              {active}
+            </div>
             <CodeMirror
               value={files[active] ?? ''}
               height="480px"
@@ -362,16 +467,48 @@ export function SubmitPage() {
         actions={
           <Segmented
             value={mode}
-            onChange={(m) => (m === 'import' ? navigate({ to: '/sources/new', search: { preset: undefined, url: undefined } }) : navigate({ to: '/submit', search: { ...search, mode: m }, replace: true }))}
+            onChange={(m) =>
+              m === 'import'
+                ? navigate({ to: '/sources/new', search: { preset: undefined, url: undefined } })
+                : navigate({ to: '/submit', search: { ...search, mode: m }, replace: true })
+            }
             options={[
-              { value: 'upload', label: <span className="flex items-center gap-1.5"><FileUp className="h-3.5 w-3.5" />{t('submit.upload')}</span> },
-              { value: 'create', label: <span className="flex items-center gap-1.5"><PenLine className="h-3.5 w-3.5" />{t('submit.create')}</span> },
-              { value: 'import', label: <span className="flex items-center gap-1.5"><GitBranch className="h-3.5 w-3.5" />{t('submit.import')}</span> },
+              {
+                value: 'upload',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <FileUp className="h-3.5 w-3.5" />
+                    {t('submit.upload')}
+                  </span>
+                ),
+              },
+              {
+                value: 'create',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <PenLine className="h-3.5 w-3.5" />
+                    {t('submit.create')}
+                  </span>
+                ),
+              },
+              {
+                value: 'import',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <GitBranch className="h-3.5 w-3.5" />
+                    {t('submit.import')}
+                  </span>
+                ),
+              },
             ]}
           />
         }
       />
-      {mode === 'create' ? <CreateMode initialNamespace={search.namespace} /> : <UploadMode initialNamespace={search.namespace} />}
+      {mode === 'create' ? (
+        <CreateMode initialNamespace={search.namespace} />
+      ) : (
+        <UploadMode initialNamespace={search.namespace} />
+      )}
       <p className="mt-6 text-[12px] text-subtle">
         <Link to="/connect" className="hover:text-fg">
           dojo submit ./my-skill

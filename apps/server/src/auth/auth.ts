@@ -16,7 +16,9 @@ export interface SsoProviderMeta {
 /** Create the org membership for a newly created user (first user / bootstrap email become owner). */
 async function onUserCreated(ctx: AppContext, u: { id: string; email: string }) {
   const orgId = await getOrgId(ctx);
-  const [{ n }] = (await ctx.db.select({ n: count() }).from(orgMember).where(eq(orgMember.orgId, orgId))) as [{ n: number }];
+  const [{ n }] = (await ctx.db.select({ n: count() }).from(orgMember).where(eq(orgMember.orgId, orgId))) as [
+    { n: number },
+  ];
   const bootstrap = ctx.config.DOJO_BOOTSTRAP_ADMIN_EMAIL?.toLowerCase();
   const role = n === 0 || (bootstrap && u.email.toLowerCase() === bootstrap) ? 'owner' : 'member';
   await ctx.db.insert(orgMember).values({ orgId, userId: u.id, role }).onConflictDoNothing();
@@ -37,7 +39,11 @@ export function createAuth(ctx: AppContext) {
       minPasswordLength: 10,
     },
     user: { additionalFields: { locale: { type: 'string', required: false } } },
-    session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 24, cookieCache: { enabled: true, maxAge: 300 } },
+    session: {
+      expiresIn: 60 * 60 * 24 * 7,
+      updateAge: 60 * 60 * 24,
+      cookieCache: { enabled: true, maxAge: 300 },
+    },
     advanced: { cookiePrefix: 'dojohub', useSecureCookies: config.DOJO_BASE_URL.startsWith('https://') },
     databaseHooks: {
       user: {
@@ -59,7 +65,10 @@ export function createAuth(ctx: AppContext) {
           const claim = meta[provider.providerId]?.groupsClaim ?? 'groups';
           const claims = { ...decodeJwtPayload(token?.idToken), ...(userInfo as Record<string, unknown>) };
           const groups = extractGroupClaims(claims, claim);
-          await ctx.db.insert(orgMember).values({ orgId, userId: user.id, role: 'member' }).onConflictDoNothing();
+          await ctx.db
+            .insert(orgMember)
+            .values({ orgId, userId: user.id, role: 'member' })
+            .onConflictDoNothing();
           await syncUserGroups(
             ctx,
             orgId,

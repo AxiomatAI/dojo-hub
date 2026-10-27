@@ -6,7 +6,14 @@ import { PAT_PREFIX, randomToken, sha256 } from '../lib/crypto';
 
 export async function createAccessToken(
   ctx: AppContext,
-  input: { orgId: string; userId: string; name: string; scopes: PatScope[]; expiresInDays?: number | null; kind?: 'personal' | 'service' | 'cli' },
+  input: {
+    orgId: string;
+    userId: string;
+    name: string;
+    scopes: PatScope[];
+    expiresInDays?: number | null;
+    kind?: 'personal' | 'service' | 'cli';
+  },
 ) {
   const secret = `${PAT_PREFIX}${randomToken(30)}`;
   const [row] = await ctx.db

@@ -24,7 +24,12 @@ export function matchLocale(preferences: readonly string[]): Locale {
     const lower = p.toLowerCase();
     if (lower === 'en-gb' || lower.startsWith('en-gb')) return 'en-GB';
     if (lower.startsWith('pl')) return 'pl';
-    if (lower.startsWith('en')) return lower === 'en-us' ? 'en-US' : ['en-au', 'en-nz', 'en-ie', 'en-in', 'en-za'].includes(lower) ? 'en-GB' : 'en-US';
+    if (lower.startsWith('en'))
+      return lower === 'en-us'
+        ? 'en-US'
+        : ['en-au', 'en-nz', 'en-ie', 'en-in', 'en-za'].includes(lower)
+          ? 'en-GB'
+          : 'en-US';
   }
   return DEFAULT_LOCALE;
 }

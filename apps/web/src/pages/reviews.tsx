@@ -5,7 +5,18 @@ import { Bot, Check, CircleDot, Clock, Inbox, MessageSquareWarning, X } from 'lu
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RiskBadge, SkillGlyph, StatusPill } from '../components/dojo';
-import { Avatar, Badge, Button, Card, CardHeader, EmptyState, PageHeader, Segmented, Skeleton, Textarea } from '../components/ui';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  EmptyState,
+  PageHeader,
+  Segmented,
+  Skeleton,
+  Textarea,
+} from '../components/ui';
 import { FilesBrowser, SecurityReport, type VersionDetail } from '../components/version';
 import { api } from '../lib/api';
 import { relativeTime } from '../lib/format';
@@ -20,7 +31,14 @@ export function ReviewsPage() {
   const view = search.status ?? 'assigned';
   const q = useQuery({
     queryKey: ['reviews', view],
-    queryFn: () => api.get<ReviewDto[]>(view === 'assigned' ? 'reviews?status=pending&assigned=true' : view === 'pending' ? 'reviews?status=pending' : 'reviews?status=all'),
+    queryFn: () =>
+      api.get<ReviewDto[]>(
+        view === 'assigned'
+          ? 'reviews?status=pending&assigned=true'
+          : view === 'pending'
+            ? 'reviews?status=pending'
+            : 'reviews?status=all',
+      ),
   });
   return (
     <div>
@@ -42,11 +60,18 @@ export function ReviewsPage() {
       />
       <Card className="overflow-hidden">
         {q.isLoading && <Skeleton className="m-4 h-32" />}
-        {q.data?.length === 0 && <EmptyState icon={<Check className="h-5 w-5" />} title={t('reviews.empty')} />}
+        {q.data?.length === 0 && (
+          <EmptyState icon={<Check className="h-5 w-5" />} title={t('reviews.empty')} />
+        )}
         {q.data?.map((r) => {
           const active = r.stages.find((s) => s.status === 'active');
           return (
-            <Link key={r.id} to="/reviews/$id" params={{ id: r.id }} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0 hover:bg-panel-hover">
+            <Link
+              key={r.id}
+              to="/reviews/$id"
+              params={{ id: r.id }}
+              className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0 hover:bg-panel-hover"
+            >
               <SkillGlyph name={r.subject.name} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -73,7 +98,11 @@ export function ReviewsPage() {
                 </div>
               </div>
               <RiskBadge level={r.subject.riskLevel} score={r.subject.riskScore} />
-              {r.status !== 'pending' && <Badge tone={r.status === 'approved' ? 'ok' : r.status === 'rejected' ? 'danger' : 'neutral'}>{r.status}</Badge>}
+              {r.status !== 'pending' && (
+                <Badge tone={r.status === 'approved' ? 'ok' : r.status === 'rejected' ? 'danger' : 'neutral'}>
+                  {r.status}
+                </Badge>
+              )}
               {r.canDecide && <span className="h-2 w-2 rounded-full bg-accent" />}
               <span className="w-24 text-right text-[12px] text-subtle">{relativeTime(r.createdAt)}</span>
             </Link>
@@ -109,25 +138,44 @@ function StageTimeline({ review }: { review: ReviewDto }) {
               s.status === 'waiting' && 'border-border bg-panel text-subtle',
             )}
           >
-            {s.status === 'approved' ? <Check className="h-3 w-3" /> : s.status === 'rejected' ? <X className="h-3 w-3" /> : s.status === 'active' ? <CircleDot className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+            {s.status === 'approved' ? (
+              <Check className="h-3 w-3" />
+            ) : s.status === 'rejected' ? (
+              <X className="h-3 w-3" />
+            ) : s.status === 'active' ? (
+              <CircleDot className="h-3 w-3" />
+            ) : (
+              <Clock className="h-3 w-3" />
+            )}
           </span>
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-medium">{s.name}</span>
             <span className="text-[11.5px] text-subtle">{t('reviews.needs', { count: s.minApprovals })}</span>
           </div>
           <div className="mt-0.5 flex flex-wrap gap-1">
-            {[...(s.approvers.roles ?? []).map((r) => t(`roles.${r}`, { defaultValue: r })), ...(s.approvers.groups ?? []), ...(s.approvers.users?.length ? [`${s.approvers.users.length} users`] : [])].map((a) => (
+            {[
+              ...(s.approvers.roles ?? []).map((r) => t(`roles.${r}`, { defaultValue: r })),
+              ...(s.approvers.groups ?? []),
+              ...(s.approvers.users?.length ? [`${s.approvers.users.length} users`] : []),
+            ].map((a) => (
               <Badge key={a}>{a}</Badge>
             ))}
           </div>
           {s.decisions.map((d) => (
-            <div key={d.createdAt} className="mt-2 flex gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-2">
+            <div
+              key={d.createdAt}
+              className="mt-2 flex gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-2"
+            >
               <Avatar name={d.actor?.name ?? 'DojoHub'} size={20} />
               <div className="min-w-0">
                 <div className="text-[12.5px]">
                   <span className="font-medium">{d.actor?.name ?? t('reviews.system')}</span>{' '}
                   <span className={d.decision === 'approve' ? 'text-ok' : 'text-danger'}>
-                    {d.decision === 'approve' ? t('reviews.approve') : d.decision === 'reject' ? t('reviews.reject') : t('reviews.requestChanges')}
+                    {d.decision === 'approve'
+                      ? t('reviews.approve')
+                      : d.decision === 'reject'
+                        ? t('reviews.reject')
+                        : t('reviews.requestChanges')}
                   </span>{' '}
                   <span className="text-subtle">· {relativeTime(d.createdAt)}</span>
                 </div>
@@ -144,25 +192,53 @@ function StageTimeline({ review }: { review: ReviewDto }) {
 function DecisionPanel({ review }: { review: ReviewDto }) {
   const { t } = useTranslation();
   const [comment, setComment] = useState('');
-  const decide = useAction((decision: string) => api.post(`reviews/${review.id}/decision`, { decision, comment: comment || undefined }), {
-    invalidate: [['review', review.id], ['reviews'], ['skill'], ['version']],
-    success: t('reviews.decided'),
-    onSuccess: () => setComment(''),
-  });
+  const decide = useAction(
+    (decision: string) =>
+      api.post(`reviews/${review.id}/decision`, { decision, comment: comment || undefined }),
+    {
+      invalidate: [['review', review.id], ['reviews'], ['skill'], ['version']],
+      success: t('reviews.decided'),
+      onSuccess: () => setComment(''),
+    },
+  );
   if (review.status !== 'pending') return null;
-  if (!review.canDecide) return <p className="rounded-lg border border-border bg-bg-subtle px-3 py-2 text-[12.5px] text-muted">{t('reviews.cannotDecide')}</p>;
+  if (!review.canDecide)
+    return (
+      <p className="rounded-lg border border-border bg-bg-subtle px-3 py-2 text-[12.5px] text-muted">
+        {t('reviews.cannotDecide')}
+      </p>
+    );
   const needsComment = !comment.trim();
   return (
     <div className="space-y-2">
-      <Textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t('reviews.commentPlaceholder')} rows={3} />
+      <Textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder={t('reviews.commentPlaceholder')}
+        rows={3}
+      />
       <div className="flex flex-wrap gap-2">
-        <Button variant="primary" icon={<Check className="h-3.5 w-3.5" />} loading={decide.isPending && decide.variables === 'approve'} onClick={() => decide.mutate('approve')}>
+        <Button
+          variant="primary"
+          icon={<Check className="h-3.5 w-3.5" />}
+          loading={decide.isPending && decide.variables === 'approve'}
+          onClick={() => decide.mutate('approve')}
+        >
           {t('reviews.approve')}
         </Button>
-        <Button icon={<MessageSquareWarning className="h-3.5 w-3.5" />} disabled={needsComment} onClick={() => decide.mutate('request_changes')}>
+        <Button
+          icon={<MessageSquareWarning className="h-3.5 w-3.5" />}
+          disabled={needsComment}
+          onClick={() => decide.mutate('request_changes')}
+        >
           {t('reviews.requestChanges')}
         </Button>
-        <Button variant="danger" icon={<X className="h-3.5 w-3.5" />} disabled={needsComment} onClick={() => decide.mutate('reject')}>
+        <Button
+          variant="danger"
+          icon={<X className="h-3.5 w-3.5" />}
+          disabled={needsComment}
+          onClick={() => decide.mutate('reject')}
+        >
           {t('reviews.reject')}
         </Button>
       </div>
@@ -184,7 +260,10 @@ export function ReviewDetailPage() {
   });
   const diff = useQuery({
     queryKey: ['diff', r?.subject.name, r?.subject.previousVersion, r?.subject.version],
-    queryFn: () => api.get<{ changes: { path: string; change: string; binary: boolean; patch: string | null }[] }>(`skills/${r!.subject.name}/diff?from=${r!.subject.previousVersion}&to=${r!.subject.version}`),
+    queryFn: () =>
+      api.get<{ changes: { path: string; change: string; binary: boolean; patch: string | null }[] }>(
+        `skills/${r!.subject.name}/diff?from=${r!.subject.previousVersion}&to=${r!.subject.version}`,
+      ),
     enabled: !!r?.subject.previousVersion,
   });
   if (review.isLoading) return <Skeleton className="h-64" />;
@@ -200,19 +279,31 @@ export function ReviewDetailPage() {
       </div>
       <div className="mb-6 flex flex-wrap items-start gap-4">
         <SkillGlyph name={r.subject.name} size={44} />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[16rem] flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[20px] font-semibold">{r.subject.displayName}</h1>
             <code className="font-mono text-muted">v{r.subject.version}</code>
-            {r.status === 'pending' ? <StatusPill status="in_review" /> : <Badge tone={r.status === 'approved' ? 'ok' : 'danger'}>{r.status}</Badge>}
+            {r.status === 'pending' ? (
+              <StatusPill status="in_review" />
+            ) : (
+              <Badge tone={r.status === 'approved' ? 'ok' : 'danger'}>{r.status}</Badge>
+            )}
             <RiskBadge level={r.subject.riskLevel} score={r.subject.riskScore} />
           </div>
           <div className="mt-1 text-[12.5px] text-subtle">
-            @{r.namespace} · {r.subject.previousVersion ? t('reviews.previous', { version: r.subject.previousVersion }) : t('reviews.firstVersion')} · {r.requestedBy?.name} · {relativeTime(r.createdAt)}
+            @{r.namespace} ·{' '}
+            {r.subject.previousVersion
+              ? t('reviews.previous', { version: r.subject.previousVersion })
+              : t('reviews.firstVersion')}{' '}
+            · {r.requestedBy?.name} · {relativeTime(r.createdAt)}
           </div>
         </div>
         {isSkill ? (
-          <Link to="/skills/$name/versions/$version" params={{ name: r.subject.name, version: r.subject.version }} search={{ file: undefined }}>
+          <Link
+            to="/skills/$name/versions/$version"
+            params={{ name: r.subject.name, version: r.subject.version }}
+            search={{ file: undefined }}
+          >
             <Button>{t('common.open')}</Button>
           </Link>
         ) : (
@@ -221,7 +312,7 @@ export function ReviewDetailPage() {
           </Link>
         )}
       </div>
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
           {isSkill && (
             <>
@@ -231,14 +322,29 @@ export function ReviewDetailPage() {
                   onChange={setTab}
                   options={[
                     { value: 'security', label: t('skills.tabs.security') },
-                    ...(r.subject.previousVersion ? [{ value: 'changes' as const, label: t('skills.compare') }] : []),
+                    ...(r.subject.previousVersion
+                      ? [{ value: 'changes' as const, label: t('skills.compare') }]
+                      : []),
                     { value: 'files', label: t('skills.tabs.files') },
                   ]}
                 />
               </div>
-              {tab === 'security' && (version.data ? <SecurityReport detail={version.data} skill={r.subject.name} onFile={() => setTab('files')} /> : <Skeleton className="h-64" />)}
-              {tab === 'changes' && <DiffSummary name={r.subject.name} data={diff.data} loading={diff.isLoading} />}
-              {tab === 'files' && version.data && <FilesBrowser skill={r.subject.name} version={r.subject.version} files={version.data.files} />}
+              {tab === 'security' &&
+                (version.data ? (
+                  <SecurityReport
+                    detail={version.data}
+                    skill={r.subject.name}
+                    onFile={() => setTab('files')}
+                  />
+                ) : (
+                  <Skeleton className="h-64" />
+                ))}
+              {tab === 'changes' && (
+                <DiffSummary name={r.subject.name} data={diff.data} loading={diff.isLoading} />
+              )}
+              {tab === 'files' && version.data && (
+                <FilesBrowser skill={r.subject.name} version={r.subject.version} files={version.data.files} />
+              )}
             </>
           )}
         </div>

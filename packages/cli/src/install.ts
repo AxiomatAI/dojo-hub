@@ -31,7 +31,14 @@ export interface LockEntry {
   sourceUrl: string;
   sourceType: 'git';
   computedHash: string;
-  dojo: { registry: string; namespace: string; version: string; versionId: string; digest: string; installedAt: string };
+  dojo: {
+    registry: string;
+    namespace: string;
+    version: string;
+    versionId: string;
+    digest: string;
+    installedAt: string;
+  };
 }
 
 interface LockFile {
@@ -39,7 +46,8 @@ interface LockFile {
   skills: Record<string, Record<string, unknown>>;
 }
 
-const lockPath = (opts: { global: boolean; cwd: string }) => (opts.global ? join(CONFIG_DIR, 'installed.json') : join(opts.cwd, 'skills-lock.json'));
+const lockPath = (opts: { global: boolean; cwd: string }) =>
+  opts.global ? join(CONFIG_DIR, 'installed.json') : join(opts.cwd, 'skills-lock.json');
 
 export async function readLock(opts: { global: boolean; cwd: string }): Promise<LockFile> {
   try {
@@ -50,13 +58,18 @@ export async function readLock(opts: { global: boolean; cwd: string }): Promise<
 }
 
 async function writeLock(opts: { global: boolean; cwd: string }, lock: LockFile) {
-  const sorted: LockFile = { version: lock.version ?? 1, skills: Object.fromEntries(Object.entries(lock.skills).sort(([a], [b]) => a.localeCompare(b))) };
+  const sorted: LockFile = {
+    version: lock.version ?? 1,
+    skills: Object.fromEntries(Object.entries(lock.skills).sort(([a], [b]) => a.localeCompare(b))),
+  };
   await mkdir(dirname(lockPath(opts)), { recursive: true });
   await writeFile(lockPath(opts), `${JSON.stringify(sorted, null, 2)}\n`);
 }
 
 export function dojoEntries(lock: LockFile): [string, LockEntry][] {
-  return Object.entries(lock.skills).filter(([, v]) => v && typeof v === 'object' && 'dojo' in v) as unknown as [string, LockEntry][];
+  return Object.entries(lock.skills).filter(
+    ([, v]) => v && typeof v === 'object' && 'dojo' in v,
+  ) as unknown as [string, LockEntry][];
 }
 
 async function writeFiles(dir: string, files: FileMap) {
@@ -102,18 +115,30 @@ export async function fetchSkill(client: Client, ref: string): Promise<SkillDeta
 }
 
 /** Download, verify and install one skill version into the canonical dir + agent dirs. */
-export async function installSkill(client: Client, skill: SkillDetail, version: string, opts: InstallOptions): Promise<{ path: string; version: string; warnings: string[] }> {
+export async function installSkill(
+  client: Client,
+  skill: SkillDetail,
+  version: string,
+  opts: InstallOptions,
+): Promise<{ path: string; version: string; warnings: string[] }> {
   const warnings: string[] = [];
   const v = skill.versions.find((x) => x.version === version);
   if (!v) throw new Error(`${skill.name}@${version} does not exist`);
-  if (v.status === 'blocked') throw new Error(`${skill.name}@${version} is BLOCKED by your security team and cannot be installed`);
-  if (!['approved', 'deprecated'].includes(v.status)) throw new Error(`${skill.name}@${version} is ${v.status} and not installable yet`);
+  if (v.status === 'blocked')
+    throw new Error(`${skill.name}@${version} is BLOCKED by your security team and cannot be installed`);
+  if (!['approved', 'deprecated'].includes(v.status))
+    throw new Error(`${skill.name}@${version} is ${v.status} and not installable yet`);
   if (v.status === 'deprecated') warnings.push(`${skill.name}@${version} is deprecated`);
-  const res = await client.raw(`/api/v1/skills/${encodeURIComponent(skill.name)}/versions/${encodeURIComponent(version)}/download?channel=cli${opts.update ? '&update=1' : ''}`);
+  const res = await client.raw(
+    `/api/v1/skills/${encodeURIComponent(skill.name)}/versions/${encodeURIComponent(version)}/download?channel=cli${opts.update ? '&update=1' : ''}`,
+  );
   if (!res.ok) throw new Error(`Download failed (HTTP ${res.status})`);
   const bytes = new Uint8Array(await res.arrayBuffer());
   const digest = createHash('sha256').update(bytes).digest('hex');
-  if (digest !== v.archiveDigest) throw new Error(`Digest mismatch for ${skill.name}@${version}: expected ${v.archiveDigest}, got ${digest}`);
+  if (digest !== v.archiveDigest)
+    throw new Error(
+      `Digest mismatch for ${skill.name}@${version}: expected ${v.archiveDigest}, got ${digest}`,
+    );
   const files = stripSingleRoot(readArchive(bytes));
   if (!files.has('SKILL.md')) throw new Error('Archive does not contain SKILL.md');
   const base = opts.global ? CANONICAL_GLOBAL : join(opts.cwd, CANONICAL_PROJECT);
@@ -129,7 +154,14 @@ export async function installSkill(client: Client, skill: SkillDetail, version: 
     sourceUrl: skill.install.gitUrl,
     sourceType: 'git',
     computedHash: await contentHash(files),
-    dojo: { registry: client.registry, namespace: skill.namespace, version, versionId: v.id, digest: `sha256:${digest}`, installedAt: new Date().toISOString() },
+    dojo: {
+      registry: client.registry,
+      namespace: skill.namespace,
+      version,
+      versionId: v.id,
+      digest: `sha256:${digest}`,
+      installedAt: new Date().toISOString(),
+    },
   };
   lock.skills[skill.name] = entry as unknown as Record<string, unknown>;
   await writeLock(opts, lock);
@@ -142,7 +174,8 @@ export async function removeSkill(name: string, opts: InstallOptions) {
   for (const agent of opts.agents) {
     const dir = opts.global ? agent.global : join(opts.cwd, agent.project);
     const target = join(dir, name);
-    if (existsSync(target) || (await lstat(target).catch(() => null))) await rm(target, { recursive: true, force: true });
+    if (existsSync(target) || (await lstat(target).catch(() => null)))
+      await rm(target, { recursive: true, force: true });
   }
   const lock = await readLock(opts);
   delete lock.skills[name];
@@ -158,7 +191,8 @@ export async function readSkillDir(dir: string): Promise<FileMap> {
       if (IGNORE.has(e.name)) continue;
       const p = join(d, e.name);
       if (e.isDirectory()) await walk(p);
-      else if (e.isFile()) files.set(relative(dir, p).split('\\').join('/'), new Uint8Array(await readFile(p)));
+      else if (e.isFile())
+        files.set(relative(dir, p).split('\\').join('/'), new Uint8Array(await readFile(p)));
     }
   };
   await walk(dir);

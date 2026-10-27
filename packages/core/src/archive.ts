@@ -17,7 +17,13 @@ export const DEFAULT_LIMITS: ArchiveLimits = {
 
 export class ArchiveError extends Error {
   constructor(
-    public code: 'unsupported_format' | 'unsafe_path' | 'link_entry' | 'too_many_files' | 'too_large' | 'corrupt',
+    public code:
+      | 'unsupported_format'
+      | 'unsafe_path'
+      | 'link_entry'
+      | 'too_many_files'
+      | 'too_large'
+      | 'corrupt',
     message: string,
   ) {
     super(message);
@@ -103,12 +109,16 @@ export function createTarGz(files: FileMap): Uint8Array {
 
 export function createZip(files: FileMap): Uint8Array {
   const entries: Record<string, [Uint8Array, { mtime: Date }]> = {};
-  for (const path of [...files.keys()].sort()) entries[path] = [files.get(path)!, { mtime: new Date(FIXED_MTIME * 1000) }];
+  for (const path of [...files.keys()].sort())
+    entries[path] = [files.get(path)!, { mtime: new Date(FIXED_MTIME * 1000) }];
   return zipSync(entries, { level: 9 });
 }
 
 function readOctal(buf: Uint8Array, offset: number, length: number): number {
-  const s = utf8.decode(buf.subarray(offset, offset + length)).replace(/\0.*$/, '').trim();
+  const s = utf8
+    .decode(buf.subarray(offset, offset + length))
+    .replace(/\0.*$/, '')
+    .trim();
   return s ? Number.parseInt(s, 8) : 0;
 }
 
@@ -124,15 +134,18 @@ class Collector {
   constructor(private limits: ArchiveLimits) {}
   add(rawPath: string, data: Uint8Array) {
     const path = normalizePath(rawPath);
-    if (path === null || path === '') throw new ArchiveError('unsafe_path', `Unsafe path in archive: ${rawPath}`);
+    if (path === null || path === '')
+      throw new ArchiveError('unsafe_path', `Unsafe path in archive: ${rawPath}`);
     if (path.split('/').some((s) => s === '__MACOSX' || s === '.DS_Store')) return;
     if (data.byteLength > this.limits.maxFileBytes) {
       throw new ArchiveError('too_large', `${path} exceeds ${this.limits.maxFileBytes} bytes`);
     }
     this.total += data.byteLength;
-    if (this.total > this.limits.maxTotalBytes) throw new ArchiveError('too_large', 'Archive exceeds size limit');
+    if (this.total > this.limits.maxTotalBytes)
+      throw new ArchiveError('too_large', 'Archive exceeds size limit');
     this.files.set(path, data);
-    if (this.files.size > this.limits.maxFiles) throw new ArchiveError('too_many_files', 'Too many files in archive');
+    if (this.files.size > this.limits.maxFiles)
+      throw new ArchiveError('too_many_files', 'Too many files in archive');
   }
 }
 
@@ -206,7 +219,8 @@ export function readArchive(bytes: Uint8Array, limits: ArchiveLimits = DEFAULT_L
       } catch {
         throw new ArchiveError('corrupt', 'Invalid gzip data');
       }
-      if (tar.byteLength > limits.maxTotalBytes * 2) throw new ArchiveError('too_large', 'Archive exceeds size limit');
+      if (tar.byteLength > limits.maxTotalBytes * 2)
+        throw new ArchiveError('too_large', 'Archive exceeds size limit');
       return readTar(tar, limits);
     }
     case 'tar':
@@ -219,7 +233,8 @@ export function readArchive(bytes: Uint8Array, limits: ArchiveLimits = DEFAULT_L
         entries = unzipSync(bytes, {
           filter: (f) => {
             count++;
-            if (count > limits.maxFiles * 2) throw new ArchiveError('too_many_files', 'Too many files in archive');
+            if (count > limits.maxFiles * 2)
+              throw new ArchiveError('too_many_files', 'Too many files in archive');
             if (f.originalSize > limits.maxFileBytes) {
               throw new ArchiveError('too_large', `${f.name} exceeds ${limits.maxFileBytes} bytes`);
             }
@@ -236,6 +251,9 @@ export function readArchive(bytes: Uint8Array, limits: ArchiveLimits = DEFAULT_L
     case 'skill-md':
       return new Map([['SKILL.md', bytes]]);
     default:
-      throw new ArchiveError('unsupported_format', 'Unsupported archive format (expected zip, tar, tar.gz or SKILL.md)');
+      throw new ArchiveError(
+        'unsupported_format',
+        'Unsupported archive format (expected zip, tar, tar.gz or SKILL.md)',
+      );
   }
 }

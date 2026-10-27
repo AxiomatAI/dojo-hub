@@ -1,4 +1,10 @@
-import { LLM_PROVIDERS, type NamespaceDto, ORG_ROLES, type PolicyDocument, WEBHOOK_EVENTS } from '@dojohub/contract';
+import {
+  LLM_PROVIDERS,
+  type NamespaceDto,
+  ORG_ROLES,
+  type PolicyDocument,
+  WEBHOOK_EVENTS,
+} from '@dojohub/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { CheckCircle2, Plus, RefreshCw, Send, Shield, Trash2 } from 'lucide-react';
@@ -7,7 +13,28 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { PolicyEditor } from '../components/policy-editor';
 import { isAdmin, useMe } from '../components/shell';
-import { Avatar, Badge, Button, Card, CardHeader, Checkbox, CopyField, Dialog, EmptyState, Field, Input, PageHeader, Select, Switch, Table, TabPanel, Tabs, Td, Textarea, Th } from '../components/ui';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  Checkbox,
+  CopyField,
+  Dialog,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  Switch,
+  Table,
+  TabPanel,
+  Tabs,
+  Td,
+  Textarea,
+  Th,
+} from '../components/ui';
 import { api } from '../lib/api';
 import { formatDateTime, relativeTime } from '../lib/format';
 import { errorMessage, useAction } from '../lib/hooks';
@@ -26,15 +53,41 @@ const ISSUER_HINT: Record<string, string> = {
 
 export function SsoProviderForm({ onDone }: { onDone?: () => void }) {
   const { t } = useTranslation();
-  const [f, setF] = useState({ preset: 'entra', providerId: 'entra', domain: '', issuer: '', clientId: '', clientSecret: '', groupsClaim: 'groups', samlEntryPoint: '', samlCert: '' });
-  const base = window.location.origin;
-  const callback = f.preset === 'saml' ? `${base}/api/auth/sso/saml2/callback/${f.providerId}` : `${base}/api/auth/sso/callback/${f.providerId}`;
-  const test = useAction(() => api.post<{ issuer: string }>('admin/sso/test', { issuer: f.preset === 'google' ? 'https://accounts.google.com' : f.issuer }), { success: t('admin.connectionOk') });
-  const save = useAction(() => api.post('admin/sso', { ...f, issuer: f.preset === 'google' ? 'https://accounts.google.com' : f.issuer }), {
-    invalidate: [['admin-sso'], ['setup-status']],
-    success: t('common.done'),
-    onSuccess: () => onDone?.(),
+  const [f, setF] = useState({
+    preset: 'entra',
+    providerId: 'entra',
+    domain: '',
+    issuer: '',
+    clientId: '',
+    clientSecret: '',
+    groupsClaim: 'groups',
+    samlEntryPoint: '',
+    samlCert: '',
   });
+  const base = window.location.origin;
+  const callback =
+    f.preset === 'saml'
+      ? `${base}/api/auth/sso/saml2/callback/${f.providerId}`
+      : `${base}/api/auth/sso/callback/${f.providerId}`;
+  const test = useAction(
+    () =>
+      api.post<{ issuer: string }>('admin/sso/test', {
+        issuer: f.preset === 'google' ? 'https://accounts.google.com' : f.issuer,
+      }),
+    { success: t('admin.connectionOk') },
+  );
+  const save = useAction(
+    () =>
+      api.post('admin/sso', {
+        ...f,
+        issuer: f.preset === 'google' ? 'https://accounts.google.com' : f.issuer,
+      }),
+    {
+      invalidate: [['admin-sso'], ['setup-status']],
+      success: t('common.done'),
+      onSuccess: () => onDone?.(),
+    },
+  );
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
@@ -42,48 +95,100 @@ export function SsoProviderForm({ onDone }: { onDone?: () => void }) {
           <button
             type="button"
             key={p}
-            onClick={() => setF({ ...f, preset: p, providerId: f.providerId === f.preset ? p : f.providerId })}
+            onClick={() =>
+              setF({ ...f, preset: p, providerId: f.providerId === f.preset ? p : f.providerId })
+            }
             className={`rounded-lg border px-3 py-1.5 text-[13px] ${f.preset === p ? 'border-accent bg-accent-soft text-accent' : 'border-border text-muted hover:text-fg'}`}
           >
-            {p === 'entra' ? 'Entra ID' : p === 'google' ? 'Google' : p === 'oidc' ? 'OIDC' : p === 'saml' ? 'SAML' : p[0]!.toUpperCase() + p.slice(1)}
+            {p === 'entra'
+              ? 'Entra ID'
+              : p === 'google'
+                ? 'Google'
+                : p === 'oidc'
+                  ? 'OIDC'
+                  : p === 'saml'
+                    ? 'SAML'
+                    : p[0]!.toUpperCase() + p.slice(1)}
           </button>
         ))}
       </div>
-      <p className="rounded-md bg-bg-subtle px-3 py-2 text-[12.5px] text-muted">{t(`admin.presetHelp.${f.preset}`)}</p>
+      <p className="rounded-md bg-bg-subtle px-3 py-2 text-[12.5px] text-muted">
+        {t(`admin.presetHelp.${f.preset}`)}
+      </p>
       <CopyField label={t('admin.callbackUrl')} value={callback} />
       <div className="grid gap-3 md:grid-cols-2">
         <Field label={t('admin.providerId')}>
-          <Input value={f.providerId} onChange={(e) => setF({ ...f, providerId: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} className="font-mono" />
+          <Input
+            value={f.providerId}
+            onChange={(e) =>
+              setF({ ...f, providerId: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })
+            }
+            className="font-mono"
+          />
         </Field>
         <Field label={t('admin.domain')} hint={t('admin.domainHint')}>
-          <Input value={f.domain} onChange={(e) => setF({ ...f, domain: e.target.value })} placeholder="acme.com" />
+          <Input
+            value={f.domain}
+            onChange={(e) => setF({ ...f, domain: e.target.value })}
+            placeholder="acme.com"
+          />
         </Field>
         {f.preset !== 'google' && (
-          <Field label={f.preset === 'saml' ? t('admin.samlIssuer') : t('admin.issuer')} className="md:col-span-2">
-            <Input value={f.issuer} onChange={(e) => setF({ ...f, issuer: e.target.value })} placeholder={ISSUER_HINT[f.preset]} className="font-mono" />
+          <Field
+            label={f.preset === 'saml' ? t('admin.samlIssuer') : t('admin.issuer')}
+            className="md:col-span-2"
+          >
+            <Input
+              value={f.issuer}
+              onChange={(e) => setF({ ...f, issuer: e.target.value })}
+              placeholder={ISSUER_HINT[f.preset]}
+              className="font-mono"
+            />
           </Field>
         )}
         {f.preset === 'saml' ? (
           <>
             <Field label={t('admin.samlEntryPoint')} className="md:col-span-2">
-              <Input value={f.samlEntryPoint} onChange={(e) => setF({ ...f, samlEntryPoint: e.target.value })} className="font-mono" />
+              <Input
+                value={f.samlEntryPoint}
+                onChange={(e) => setF({ ...f, samlEntryPoint: e.target.value })}
+                className="font-mono"
+              />
             </Field>
             <Field label={t('admin.samlCert')} className="md:col-span-2">
-              <Textarea rows={4} value={f.samlCert} onChange={(e) => setF({ ...f, samlCert: e.target.value })} className="font-mono text-[11.5px]" />
+              <Textarea
+                rows={4}
+                value={f.samlCert}
+                onChange={(e) => setF({ ...f, samlCert: e.target.value })}
+                className="font-mono text-[11.5px]"
+              />
             </Field>
           </>
         ) : (
           <>
             <Field label={t('admin.clientId')}>
-              <Input value={f.clientId} onChange={(e) => setF({ ...f, clientId: e.target.value })} className="font-mono" />
+              <Input
+                value={f.clientId}
+                onChange={(e) => setF({ ...f, clientId: e.target.value })}
+                className="font-mono"
+              />
             </Field>
             <Field label={t('admin.clientSecret')}>
-              <Input type="password" value={f.clientSecret} onChange={(e) => setF({ ...f, clientSecret: e.target.value })} autoComplete="off" />
+              <Input
+                type="password"
+                value={f.clientSecret}
+                onChange={(e) => setF({ ...f, clientSecret: e.target.value })}
+                autoComplete="off"
+              />
             </Field>
           </>
         )}
         <Field label={t('admin.groupsClaim')}>
-          <Input value={f.groupsClaim} onChange={(e) => setF({ ...f, groupsClaim: e.target.value })} className="font-mono" />
+          <Input
+            value={f.groupsClaim}
+            onChange={(e) => setF({ ...f, groupsClaim: e.target.value })}
+            className="font-mono"
+          />
         </Field>
       </div>
       <div className="flex justify-end gap-2">
@@ -92,7 +197,12 @@ export function SsoProviderForm({ onDone }: { onDone?: () => void }) {
             {t('admin.testConnection')}
           </Button>
         )}
-        <Button variant="primary" loading={save.isPending} disabled={!f.domain || !f.providerId} onClick={() => save.mutate(undefined)}>
+        <Button
+          variant="primary"
+          loading={save.isPending}
+          disabled={!f.domain || !f.providerId}
+          onClick={() => save.mutate(undefined)}
+        >
           {t('common.save')}
         </Button>
       </div>
@@ -103,7 +213,21 @@ export function SsoProviderForm({ onDone }: { onDone?: () => void }) {
 function SsoTab() {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
-  const q = useQuery({ queryKey: ['admin-sso'], queryFn: () => api.get<{ providerId: string; name: string; domain: string; type: string; issuer: string; callbackUrl: string; groupsClaim: string }[]>('admin/sso') });
+  const q = useQuery({
+    queryKey: ['admin-sso'],
+    queryFn: () =>
+      api.get<
+        {
+          providerId: string;
+          name: string;
+          domain: string;
+          type: string;
+          issuer: string;
+          callbackUrl: string;
+          groupsClaim: string;
+        }[]
+      >('admin/sso'),
+  });
   const del = useAction((id: string) => api.del(`admin/sso/${id}`), { invalidate: [['admin-sso']] });
   return (
     <div className="space-y-4">
@@ -116,9 +240,18 @@ function SsoTab() {
             </Button>
           }
         />
-        {q.data?.length === 0 && <EmptyState icon={<Shield className="h-5 w-5" />} title={t('onboarding.sso.title')} description={t('onboarding.sso.body')} />}
+        {q.data?.length === 0 && (
+          <EmptyState
+            icon={<Shield className="h-5 w-5" />}
+            title={t('onboarding.sso.title')}
+            description={t('onboarding.sso.body')}
+          />
+        )}
         {q.data?.map((p) => (
-          <div key={p.providerId} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0">
+          <div
+            key={p.providerId}
+            className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
+          >
             <CheckCircle2 className="h-4 w-4 text-ok" />
             <div className="min-w-0 flex-1">
               <div className="font-medium">
@@ -129,7 +262,12 @@ function SsoTab() {
               </div>
             </div>
             <CopyField value={p.callbackUrl} className="hidden w-80 lg:flex" />
-            <Button variant="ghost" size="icon" aria-label={t('common.delete')} onClick={() => confirm(`${t('common.delete')} ${p.name}?`) && del.mutate(p.providerId)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t('common.delete')}
+              onClick={() => confirm(`${t('common.delete')} ${p.name}?`) && del.mutate(p.providerId)}
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -145,11 +283,32 @@ function SsoTab() {
 // ───────── Members ─────────
 function MembersTab() {
   const { t } = useTranslation();
-  const q = useQuery({ queryKey: ['admin-members'], queryFn: () => api.get<{ id: string; name: string; email: string; image: string | null; role: string; managed: boolean; lastSeenAt: string | null }[]>('admin/members') });
-  const setRole = useAction((b: { id: string; role: string }) => api.patch(`admin/members/${b.id}`, { role: b.role }), { invalidate: [['admin-members']] });
+  const q = useQuery({
+    queryKey: ['admin-members'],
+    queryFn: () =>
+      api.get<
+        {
+          id: string;
+          name: string;
+          email: string;
+          image: string | null;
+          role: string;
+          managed: boolean;
+          lastSeenAt: string | null;
+        }[]
+      >('admin/members'),
+  });
+  const setRole = useAction(
+    (b: { id: string; role: string }) => api.patch(`admin/members/${b.id}`, { role: b.role }),
+    { invalidate: [['admin-members']] },
+  );
   const [open, setOpen] = useState(false);
   const [u, setU] = useState({ name: '', email: '', password: '', role: 'member' });
-  const create = useAction(() => api.post('admin/users', u), { invalidate: [['admin-members']], success: t('common.done'), onSuccess: () => setOpen(false) });
+  const create = useAction(() => api.post('admin/users', u), {
+    invalidate: [['admin-members']],
+    success: t('common.done'),
+    onSuccess: () => setOpen(false),
+  });
   return (
     <Card>
       <CardHeader
@@ -204,7 +363,12 @@ function MembersTab() {
             <Input type="email" value={u.email} onChange={(e) => setU({ ...u, email: e.target.value })} />
           </Field>
           <Field label={t('common.password')} hint={t('setup.passwordHint')}>
-            <Input type="password" value={u.password} onChange={(e) => setU({ ...u, password: e.target.value })} autoComplete="new-password" />
+            <Input
+              type="password"
+              value={u.password}
+              onChange={(e) => setU({ ...u, password: e.target.value })}
+              autoComplete="new-password"
+            />
           </Field>
           <Field label={t('common.role')}>
             <Select value={u.role} onChange={(e) => setU({ ...u, role: e.target.value })}>
@@ -224,31 +388,96 @@ function MembersTab() {
 // ───────── Access: groups, mappings, SCIM, directory sync ─────────
 function AccessTab() {
   const { t } = useTranslation();
-  const groups = useQuery({ queryKey: ['admin-groups'], queryFn: () => api.get<{ id: string; externalId: string; displayName: string; source: string; members: number }[]>('admin/groups') });
-  const mappings = useQuery({ queryKey: ['admin-mappings'], queryFn: () => api.get<{ id: string; group: string; externalId: string; namespace: string | null; orgRole: string | null; namespaceRole: string | null }[]>('admin/group-mappings') });
+  const groups = useQuery({
+    queryKey: ['admin-groups'],
+    queryFn: () =>
+      api.get<{ id: string; externalId: string; displayName: string; source: string; members: number }[]>(
+        'admin/groups',
+      ),
+  });
+  const mappings = useQuery({
+    queryKey: ['admin-mappings'],
+    queryFn: () =>
+      api.get<
+        {
+          id: string;
+          group: string;
+          externalId: string;
+          namespace: string | null;
+          orgRole: string | null;
+          namespaceRole: string | null;
+        }[]
+      >('admin/group-mappings'),
+  });
   const teams = useQuery({ queryKey: ['namespaces'], queryFn: () => api.get<NamespaceDto[]>('namespaces') });
-  const scim = useQuery({ queryKey: ['admin-scim'], queryFn: () => api.get<{ endpoint: string; tokens: { id: string; name: string; lastUsedAt: string | null }[] }>('admin/scim-tokens') });
-  const dirs = useQuery({ queryKey: ['admin-dirsync'], queryFn: () => api.get<{ id: string; kind: string; lastRunAt: string | null; lastStatus: string | null }[]>('admin/directory-sync') });
+  const scim = useQuery({
+    queryKey: ['admin-scim'],
+    queryFn: () =>
+      api.get<{ endpoint: string; tokens: { id: string; name: string; lastUsedAt: string | null }[] }>(
+        'admin/scim-tokens',
+      ),
+  });
+  const dirs = useQuery({
+    queryKey: ['admin-dirsync'],
+    queryFn: () =>
+      api.get<{ id: string; kind: string; lastRunAt: string | null; lastStatus: string | null }[]>(
+        'admin/directory-sync',
+      ),
+  });
   const [m, setM] = useState({ groupId: '', namespaceId: '', orgRole: 'member', namespaceRole: 'member' });
   const [g, setG] = useState({ externalId: '', displayName: '' });
   const [scimToken, setScimToken] = useState<string | null>(null);
-  const [dir, setDir] = useState<{ kind: string; [k: string]: string }>({ kind: 'microsoft_graph', tenantId: '', clientId: '', clientSecret: '' });
-  const addGroup = useAction(() => api.post('admin/groups', g), { invalidate: [['admin-groups']], onSuccess: () => setG({ externalId: '', displayName: '' }) });
+  const [dir, setDir] = useState<{ kind: string; [k: string]: string }>({
+    kind: 'microsoft_graph',
+    tenantId: '',
+    clientId: '',
+    clientSecret: '',
+  });
+  const addGroup = useAction(() => api.post('admin/groups', g), {
+    invalidate: [['admin-groups']],
+    onSuccess: () => setG({ externalId: '', displayName: '' }),
+  });
   const addMapping = useAction(
-    () => api.post('admin/group-mappings', m.namespaceId ? { groupId: m.groupId, namespaceId: m.namespaceId, namespaceRole: m.namespaceRole } : { groupId: m.groupId, orgRole: m.orgRole }),
+    () =>
+      api.post(
+        'admin/group-mappings',
+        m.namespaceId
+          ? { groupId: m.groupId, namespaceId: m.namespaceId, namespaceRole: m.namespaceRole }
+          : { groupId: m.groupId, orgRole: m.orgRole },
+      ),
     { invalidate: [['admin-mappings']], success: t('common.done') },
   );
-  const delMapping = useAction((id: string) => api.del(`admin/group-mappings/${id}`), { invalidate: [['admin-mappings']] });
-  const newScim = useAction(() => api.post<{ token: string }>('admin/scim-tokens', { name: `SCIM ${new Date().toISOString().slice(0, 10)}` }), { invalidate: [['admin-scim']], onSuccess: (r) => setScimToken(r.token) });
-  const revokeScim = useAction((id: string) => api.del(`admin/scim-tokens/${id}`), { invalidate: [['admin-scim']] });
-  const addDir = useAction(() => api.post('admin/directory-sync', dir), { invalidate: [['admin-dirsync']], success: t('common.done') });
-  const runDir = useAction((id: string) => api.post(`admin/directory-sync/${id}/run`), { invalidate: [['admin-dirsync']], success: t('common.done') });
+  const delMapping = useAction((id: string) => api.del(`admin/group-mappings/${id}`), {
+    invalidate: [['admin-mappings']],
+  });
+  const newScim = useAction(
+    () =>
+      api.post<{ token: string }>('admin/scim-tokens', {
+        name: `SCIM ${new Date().toISOString().slice(0, 10)}`,
+      }),
+    { invalidate: [['admin-scim']], onSuccess: (r) => setScimToken(r.token) },
+  );
+  const revokeScim = useAction((id: string) => api.del(`admin/scim-tokens/${id}`), {
+    invalidate: [['admin-scim']],
+  });
+  const addDir = useAction(() => api.post('admin/directory-sync', dir), {
+    invalidate: [['admin-dirsync']],
+    success: t('common.done'),
+  });
+  const runDir = useAction((id: string) => api.post(`admin/directory-sync/${id}/run`), {
+    invalidate: [['admin-dirsync']],
+    success: t('common.done'),
+  });
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader title={t('admin.groupMappings')} />
-        <div className="grid gap-2 border-b border-border p-4 md:grid-cols-[1fr_1fr_1fr_auto]">
-          <Select value={m.groupId} onChange={(e) => setM({ ...m, groupId: e.target.value })} aria-label={t('admin.groups')}>
+        <div className="grid gap-2 border-b border-border p-4 md:grid-cols-[minmax(0,1fr)_1fr_1fr_auto]">
+          <Select
+            value={m.groupId}
+            onChange={(e) => setM({ ...m, groupId: e.target.value })}
+            aria-label={t('admin.groups')}
+          >
             <option value="">{t('admin.groups')}…</option>
             {groups.data?.map((x) => (
               <option key={x.id} value={x.id}>
@@ -256,7 +485,11 @@ function AccessTab() {
               </option>
             ))}
           </Select>
-          <Select value={m.namespaceId} onChange={(e) => setM({ ...m, namespaceId: e.target.value })} aria-label={t('common.team')}>
+          <Select
+            value={m.namespaceId}
+            onChange={(e) => setM({ ...m, namespaceId: e.target.value })}
+            aria-label={t('common.team')}
+          >
             <option value="">{t('admin.orgRole')}</option>
             {teams.data?.map((n) => (
               <option key={n.id} value={n.id}>
@@ -265,7 +498,11 @@ function AccessTab() {
             ))}
           </Select>
           {m.namespaceId ? (
-            <Select value={m.namespaceRole} onChange={(e) => setM({ ...m, namespaceRole: e.target.value })} aria-label={t('admin.teamRole')}>
+            <Select
+              value={m.namespaceRole}
+              onChange={(e) => setM({ ...m, namespaceRole: e.target.value })}
+              aria-label={t('admin.teamRole')}
+            >
               {['owner', 'maintainer', 'reviewer', 'member'].map((r) => (
                 <option key={r} value={r}>
                   {t(`roles.${r}`)}
@@ -273,7 +510,11 @@ function AccessTab() {
               ))}
             </Select>
           ) : (
-            <Select value={m.orgRole} onChange={(e) => setM({ ...m, orgRole: e.target.value })} aria-label={t('admin.orgRole')}>
+            <Select
+              value={m.orgRole}
+              onChange={(e) => setM({ ...m, orgRole: e.target.value })}
+              aria-label={t('admin.orgRole')}
+            >
               {ORG_ROLES.map((r) => (
                 <option key={r} value={r}>
                   {t(`roles.${r}`)}
@@ -281,17 +522,31 @@ function AccessTab() {
               ))}
             </Select>
           )}
-          <Button variant="primary" disabled={!m.groupId} loading={addMapping.isPending} onClick={() => addMapping.mutate(undefined)}>
+          <Button
+            variant="primary"
+            disabled={!m.groupId}
+            loading={addMapping.isPending}
+            onClick={() => addMapping.mutate(undefined)}
+          >
             {t('admin.addMapping')}
           </Button>
         </div>
         {mappings.data?.map((x) => (
-          <div key={x.id} className="flex items-center gap-3 border-b border-border px-4 py-2 text-[13px] last:border-b-0">
+          <div
+            key={x.id}
+            className="flex items-center gap-3 border-b border-border px-4 py-2 text-[13px] last:border-b-0"
+          >
             <span className="font-medium">{x.group}</span>
             <span className="text-subtle">→</span>
             {x.namespace ? <Badge>@{x.namespace}</Badge> : <Badge tone="accent">org</Badge>}
             <span>{t(`roles.${x.namespaceRole ?? x.orgRole}`)}</span>
-            <Button variant="ghost" size="icon" className="ml-auto" aria-label={t('common.delete')} onClick={() => delMapping.mutate(x.id)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-auto"
+              aria-label={t('common.delete')}
+              onClick={() => delMapping.mutate(x.id)}
+            >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -300,26 +555,48 @@ function AccessTab() {
       <Card>
         <CardHeader title={t('admin.groups')} />
         <div className="flex gap-2 border-b border-border p-4">
-          <Input value={g.externalId} onChange={(e) => setG({ ...g, externalId: e.target.value })} placeholder={t('admin.externalId')} className="font-mono" />
-          <Input value={g.displayName} onChange={(e) => setG({ ...g, displayName: e.target.value })} placeholder={t('common.name')} />
+          <Input
+            value={g.externalId}
+            onChange={(e) => setG({ ...g, externalId: e.target.value })}
+            placeholder={t('admin.externalId')}
+            className="font-mono"
+          />
+          <Input
+            value={g.displayName}
+            onChange={(e) => setG({ ...g, displayName: e.target.value })}
+            placeholder={t('common.name')}
+          />
           <Button disabled={!g.externalId} onClick={() => addGroup.mutate(undefined)}>
             {t('admin.registerGroup')}
           </Button>
         </div>
         <div className="max-h-72 overflow-y-auto">
           {groups.data?.map((x) => (
-            <div key={x.id} className="flex items-center gap-3 border-b border-border px-4 py-1.5 text-[13px] last:border-b-0">
+            <div
+              key={x.id}
+              className="flex items-center gap-3 border-b border-border px-4 py-1.5 text-[13px] last:border-b-0"
+            >
               <span className="font-medium">{x.displayName}</span>
               <code className="truncate font-mono text-[11.5px] text-subtle">{x.externalId}</code>
               <Badge className="ml-auto">{x.source}</Badge>
-              <span className="w-24 text-right text-[12px] text-subtle">{t('count.members', { count: x.members })}</span>
+              <span className="w-24 text-right text-[12px] text-subtle">
+                {t('count.members', { count: x.members })}
+              </span>
             </div>
           ))}
         </div>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader title={t('admin.scim')} description={t('admin.scimBody')} actions={<Button size="sm" onClick={() => newScim.mutate(undefined)}>{t('admin.newScimToken')}</Button>} />
+          <CardHeader
+            title={t('admin.scim')}
+            description={t('admin.scimBody')}
+            actions={
+              <Button size="sm" onClick={() => newScim.mutate(undefined)}>
+                {t('admin.newScimToken')}
+              </Button>
+            }
+          />
           <div className="space-y-2 p-4">
             {scim.data && <CopyField label={t('admin.scimEndpoint')} value={scim.data.endpoint} />}
             {scimToken && <CopyField label="token" value={scimToken} />}
@@ -327,7 +604,12 @@ function AccessTab() {
               <div key={tk.id} className="flex items-center gap-2 text-[13px]">
                 <span>{tk.name}</span>
                 <span className="text-[12px] text-subtle">{relativeTime(tk.lastUsedAt)}</span>
-                <Button size="sm" variant="ghost" className="ml-auto" onClick={() => revokeScim.mutate(tk.id)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto"
+                  onClick={() => revokeScim.mutate(tk.id)}
+                >
                   {t('settings.revoke')}
                 </Button>
               </div>
@@ -341,7 +623,13 @@ function AccessTab() {
               <div key={d.id} className="flex items-center gap-2 text-[13px]">
                 <Badge>{d.kind}</Badge>
                 <span className="truncate text-[12px] text-subtle">{d.lastStatus ?? '—'}</span>
-                <Button size="sm" variant="ghost" className="ml-auto" icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={() => runDir.mutate(d.id)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto"
+                  icon={<RefreshCw className="h-3.5 w-3.5" />}
+                  onClick={() => runDir.mutate(d.id)}
+                >
                   {t('admin.runNow')}
                 </Button>
               </div>
@@ -352,18 +640,50 @@ function AccessTab() {
             </Select>
             {dir.kind === 'microsoft_graph' ? (
               <>
-                <Input placeholder="Tenant ID" value={dir.tenantId ?? ''} onChange={(e) => setDir({ ...dir, tenantId: e.target.value })} />
-                <Input placeholder={t('admin.clientId')} value={dir.clientId ?? ''} onChange={(e) => setDir({ ...dir, clientId: e.target.value })} />
-                <Input type="password" placeholder={t('admin.clientSecret')} value={dir.clientSecret ?? ''} onChange={(e) => setDir({ ...dir, clientSecret: e.target.value })} />
+                <Input
+                  placeholder="Tenant ID"
+                  value={dir.tenantId ?? ''}
+                  onChange={(e) => setDir({ ...dir, tenantId: e.target.value })}
+                />
+                <Input
+                  placeholder={t('admin.clientId')}
+                  value={dir.clientId ?? ''}
+                  onChange={(e) => setDir({ ...dir, clientId: e.target.value })}
+                />
+                <Input
+                  type="password"
+                  placeholder={t('admin.clientSecret')}
+                  value={dir.clientSecret ?? ''}
+                  onChange={(e) => setDir({ ...dir, clientSecret: e.target.value })}
+                />
               </>
             ) : (
               <>
-                <Input placeholder="admin@acme.com" value={dir.adminEmail ?? ''} onChange={(e) => setDir({ ...dir, adminEmail: e.target.value })} />
-                <Input placeholder="acme.com" value={dir.domain ?? ''} onChange={(e) => setDir({ ...dir, domain: e.target.value })} />
-                <Textarea placeholder="Service account JSON" rows={3} value={dir.serviceAccountJson ?? ''} onChange={(e) => setDir({ ...dir, serviceAccountJson: e.target.value })} className="font-mono text-[11px]" />
+                <Input
+                  placeholder="admin@acme.com"
+                  value={dir.adminEmail ?? ''}
+                  onChange={(e) => setDir({ ...dir, adminEmail: e.target.value })}
+                />
+                <Input
+                  placeholder="acme.com"
+                  value={dir.domain ?? ''}
+                  onChange={(e) => setDir({ ...dir, domain: e.target.value })}
+                />
+                <Textarea
+                  placeholder="Service account JSON"
+                  rows={3}
+                  value={dir.serviceAccountJson ?? ''}
+                  onChange={(e) => setDir({ ...dir, serviceAccountJson: e.target.value })}
+                  className="font-mono text-[11px]"
+                />
               </>
             )}
-            <Button variant="primary" className="w-full" loading={addDir.isPending} onClick={() => addDir.mutate(undefined)}>
+            <Button
+              variant="primary"
+              className="w-full"
+              loading={addDir.isPending}
+              onClick={() => addDir.mutate(undefined)}
+            >
               {t('common.save')}
             </Button>
           </div>
@@ -383,11 +703,38 @@ const MODEL_HINT: Record<string, string> = {
   'openai-compatible': 'llama3.3:70b',
 };
 
-export function LlmForm({ purpose = 'judge', onDone }: { purpose?: 'judge' | 'embedding'; onDone?: () => void }) {
+export function LlmForm({
+  purpose = 'judge',
+  onDone,
+}: {
+  purpose?: 'judge' | 'embedding';
+  onDone?: () => void;
+}) {
   const { t } = useTranslation();
-  const q = useQuery({ queryKey: ['admin-llm'], queryFn: () => api.get<{ purpose: string; provider: string; model: string; baseUrl: string | null; hasKey: boolean; options: Record<string, unknown>; enabled: boolean }[]>('admin/llm') });
+  const q = useQuery({
+    queryKey: ['admin-llm'],
+    queryFn: () =>
+      api.get<
+        {
+          purpose: string;
+          provider: string;
+          model: string;
+          baseUrl: string | null;
+          hasKey: boolean;
+          options: Record<string, unknown>;
+          enabled: boolean;
+        }[]
+      >('admin/llm'),
+  });
   const existing = q.data?.find((x) => x.purpose === purpose);
-  const [f, setF] = useState<{ provider: string; model: string; baseUrl: string; apiKey: string; consensus: string; enabled: boolean } | null>(null);
+  const [f, setF] = useState<{
+    provider: string;
+    model: string;
+    baseUrl: string;
+    apiKey: string;
+    consensus: string;
+    enabled: boolean;
+  } | null>(null);
   const v = f ?? {
     provider: existing?.provider ?? (purpose === 'embedding' ? 'openai' : 'anthropic'),
     model: existing?.model ?? (purpose === 'embedding' ? 'text-embedding-3-small' : 'claude-sonnet-5-5'),
@@ -398,14 +745,25 @@ export function LlmForm({ purpose = 'judge', onDone }: { purpose?: 'judge' | 'em
   };
   const set = (patch: Partial<typeof v>) => setF({ ...v, ...patch });
   const save = useAction(
-    () => api.put('admin/llm', { purpose, provider: v.provider, model: v.model, baseUrl: v.baseUrl || undefined, apiKey: v.apiKey || undefined, options: { consensus: Number(v.consensus) }, enabled: v.enabled }),
+    () =>
+      api.put('admin/llm', {
+        purpose,
+        provider: v.provider,
+        model: v.model,
+        baseUrl: v.baseUrl || undefined,
+        apiKey: v.apiKey || undefined,
+        options: { consensus: Number(v.consensus) },
+        enabled: v.enabled,
+      }),
     { invalidate: [['admin-llm'], ['setup-status']], success: t('common.done'), onSuccess: () => onDone?.() },
   );
   const [testResult, setTestResult] = useState<string | null>(null);
   const test = async () => {
     setTestResult('…');
     try {
-      const r = await api.post<{ ok: boolean; reply?: string; error?: string; latencyMs: number }>('admin/llm/test');
+      const r = await api.post<{ ok: boolean; reply?: string; error?: string; latencyMs: number }>(
+        'admin/llm/test',
+      );
       setTestResult(r.ok ? `✓ "${r.reply}" (${r.latencyMs} ms)` : `✗ ${r.error}`);
     } catch (err) {
       setTestResult(`✗ ${errorMessage(err)}`);
@@ -415,7 +773,10 @@ export function LlmForm({ purpose = 'judge', onDone }: { purpose?: 'judge' | 'em
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-2">
         <Field label={t('admin.provider')}>
-          <Select value={v.provider} onChange={(e) => set({ provider: e.target.value, model: MODEL_HINT[e.target.value] ?? '' })}>
+          <Select
+            value={v.provider}
+            onChange={(e) => set({ provider: e.target.value, model: MODEL_HINT[e.target.value] ?? '' })}
+          >
             {LLM_PROVIDERS.filter((p) => purpose === 'judge' || p !== 'anthropic').map((p) => (
               <option key={p} value={p}>
                 {p}
@@ -424,13 +785,28 @@ export function LlmForm({ purpose = 'judge', onDone }: { purpose?: 'judge' | 'em
           </Select>
         </Field>
         <Field label={t('admin.model')}>
-          <Input value={v.model} onChange={(e) => set({ model: e.target.value })} placeholder={MODEL_HINT[v.provider]} className="font-mono" />
+          <Input
+            value={v.model}
+            onChange={(e) => set({ model: e.target.value })}
+            placeholder={MODEL_HINT[v.provider]}
+            className="font-mono"
+          />
         </Field>
         <Field label={t('admin.apiKey')} hint={existing?.hasKey ? t('admin.apiKeySet') : undefined}>
-          <Input type="password" value={v.apiKey} onChange={(e) => set({ apiKey: e.target.value })} autoComplete="off" />
+          <Input
+            type="password"
+            value={v.apiKey}
+            onChange={(e) => set({ apiKey: e.target.value })}
+            autoComplete="off"
+          />
         </Field>
         <Field label={t('admin.baseUrl')} hint={t('common.optional')}>
-          <Input value={v.baseUrl} onChange={(e) => set({ baseUrl: e.target.value })} placeholder={v.provider === 'openai-compatible' ? 'http://ollama:11434/v1' : ''} className="font-mono" />
+          <Input
+            value={v.baseUrl}
+            onChange={(e) => set({ baseUrl: e.target.value })}
+            placeholder={v.provider === 'openai-compatible' ? 'http://ollama:11434/v1' : ''}
+            className="font-mono"
+          />
         </Field>
         {purpose === 'judge' && (
           <Field label={t('admin.consensus')}>
@@ -444,7 +820,11 @@ export function LlmForm({ purpose = 'judge', onDone }: { purpose?: 'judge' | 'em
           </Field>
         )}
         <div className="flex items-end">
-          <Switch checked={v.enabled} onCheckedChange={(enabled) => set({ enabled })} label={t('common.enabled')} />
+          <Switch
+            checked={v.enabled}
+            onCheckedChange={(enabled) => set({ enabled })}
+            label={t('common.enabled')}
+          />
         </div>
       </div>
       <div className="flex items-center justify-end gap-2">
@@ -464,13 +844,47 @@ export function LlmForm({ purpose = 'judge', onDone }: { purpose?: 'judge' | 'em
 
 function VerificationTab() {
   const { t } = useTranslation();
-  const dm = useQuery({ queryKey: ['admin-dm'], queryFn: () => api.get<{ name: string; url: string; hasSecret: boolean; timeoutMs: number; onError: string; enabled: boolean } | null>('admin/decision-model') });
-  const settings = useQuery({ queryKey: ['admin-settings'], queryFn: () => api.get<{ anonymousInternal: boolean; securityRules: string }>('admin/settings') });
-  const [d, setD] = useState<{ name: string; url: string; secret: string; timeoutMs: number; onError: string; enabled: boolean } | null>(null);
-  const dv = d ?? { name: dm.data?.name ?? 'Decision model', url: dm.data?.url ?? '', secret: '', timeoutMs: dm.data?.timeoutMs ?? 15000, onError: dm.data?.onError ?? 'review', enabled: dm.data?.enabled ?? true };
-  const saveDm = useAction(() => api.put('admin/decision-model', { ...dv, secret: dv.secret || undefined }), { invalidate: [['admin-dm']], success: t('common.done') });
+  const dm = useQuery({
+    queryKey: ['admin-dm'],
+    queryFn: () =>
+      api.get<{
+        name: string;
+        url: string;
+        hasSecret: boolean;
+        timeoutMs: number;
+        onError: string;
+        enabled: boolean;
+      } | null>('admin/decision-model'),
+  });
+  const settings = useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: () => api.get<{ anonymousInternal: boolean; securityRules: string }>('admin/settings'),
+  });
+  const [d, setD] = useState<{
+    name: string;
+    url: string;
+    secret: string;
+    timeoutMs: number;
+    onError: string;
+    enabled: boolean;
+  } | null>(null);
+  const dv = d ?? {
+    name: dm.data?.name ?? 'Decision model',
+    url: dm.data?.url ?? '',
+    secret: '',
+    timeoutMs: dm.data?.timeoutMs ?? 15000,
+    onError: dm.data?.onError ?? 'review',
+    enabled: dm.data?.enabled ?? true,
+  };
+  const saveDm = useAction(() => api.put('admin/decision-model', { ...dv, secret: dv.secret || undefined }), {
+    invalidate: [['admin-dm']],
+    success: t('common.done'),
+  });
   const [rules, setRules] = useState<string | null>(null);
-  const saveRules = useAction(() => api.put('admin/settings', { securityRules: rules ?? '' }), { invalidate: [['admin-settings']], success: t('common.done') });
+  const saveRules = useAction(() => api.put('admin/settings', { securityRules: rules ?? '' }), {
+    invalidate: [['admin-settings']],
+    success: t('common.done'),
+  });
   return (
     <div className="space-y-4">
       <Card>
@@ -489,13 +903,26 @@ function VerificationTab() {
         <CardHeader title={t('admin.decisionModel')} description={t('admin.decisionModelBody')} />
         <div className="grid gap-3 p-4 md:grid-cols-2">
           <Field label="URL" className="md:col-span-2">
-            <Input value={dv.url} onChange={(e) => setD({ ...dv, url: e.target.value })} placeholder="https://decide.internal/v1/skills" className="font-mono" />
+            <Input
+              value={dv.url}
+              onChange={(e) => setD({ ...dv, url: e.target.value })}
+              placeholder="https://decide.internal/v1/skills"
+              className="font-mono"
+            />
           </Field>
           <Field label={t('admin.secret')} hint={dm.data?.hasSecret ? t('admin.apiKeySet') : undefined}>
-            <Input type="password" value={dv.secret} onChange={(e) => setD({ ...dv, secret: e.target.value })} />
+            <Input
+              type="password"
+              value={dv.secret}
+              onChange={(e) => setD({ ...dv, secret: e.target.value })}
+            />
           </Field>
           <Field label={t('admin.timeout')}>
-            <Input type="number" value={dv.timeoutMs} onChange={(e) => setD({ ...dv, timeoutMs: Number(e.target.value) })} />
+            <Input
+              type="number"
+              value={dv.timeoutMs}
+              onChange={(e) => setD({ ...dv, timeoutMs: Number(e.target.value) })}
+            />
           </Field>
           <Field label={t('admin.onError')}>
             <Select value={dv.onError} onChange={(e) => setD({ ...dv, onError: e.target.value })}>
@@ -504,8 +931,17 @@ function VerificationTab() {
             </Select>
           </Field>
           <div className="flex items-end justify-between gap-2">
-            <Switch checked={dv.enabled} onCheckedChange={(enabled) => setD({ ...dv, enabled })} label={t('common.enabled')} />
-            <Button variant="primary" disabled={!dv.url} loading={saveDm.isPending} onClick={() => saveDm.mutate(undefined)}>
+            <Switch
+              checked={dv.enabled}
+              onCheckedChange={(enabled) => setD({ ...dv, enabled })}
+              label={t('common.enabled')}
+            />
+            <Button
+              variant="primary"
+              disabled={!dv.url}
+              loading={saveDm.isPending}
+              onClick={() => saveDm.mutate(undefined)}
+            >
               {t('common.save')}
             </Button>
           </div>
@@ -519,10 +955,16 @@ function VerificationTab() {
             className="font-mono text-[12px]"
             value={rules ?? settings.data?.securityRules ?? ''}
             onChange={(e) => setRules(e.target.value)}
-            placeholder={'- id: custom.internal_hosts\n  category: network\n  severity: medium\n  message: Calls an internal-only host\n  pattern: "corp-internal\\\\.example\\\\.com"'}
+            placeholder={
+              '- id: custom.internal_hosts\n  category: network\n  severity: medium\n  message: Calls an internal-only host\n  pattern: "corp-internal\\\\.example\\\\.com"'
+            }
           />
           <div className="flex justify-end">
-            <Button variant="primary" loading={saveRules.isPending} onClick={() => saveRules.mutate(undefined)}>
+            <Button
+              variant="primary"
+              loading={saveRules.isPending}
+              onClick={() => saveRules.mutate(undefined)}
+            >
               {t('common.save')}
             </Button>
           </div>
@@ -536,10 +978,18 @@ function VerificationTab() {
 function GeneralTab() {
   const { t } = useTranslation();
   const me = useMe();
-  const settings = useQuery({ queryKey: ['admin-settings'], queryFn: () => api.get<{ anonymousInternal: boolean }>('admin/settings') });
+  const settings = useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: () => api.get<{ anonymousInternal: boolean }>('admin/settings'),
+  });
   const [name, setName] = useState(me.orgName);
-  const rename = useAction(() => api.patch('admin/org', { name }), { invalidate: [['me']], success: t('common.done') });
-  const toggle = useAction((v: boolean) => api.put('admin/settings', { anonymousInternal: v }), { invalidate: [['admin-settings']] });
+  const rename = useAction(() => api.patch('admin/org', { name }), {
+    invalidate: [['me']],
+    success: t('common.done'),
+  });
+  const toggle = useAction((v: boolean) => api.put('admin/settings', { anonymousInternal: v }), {
+    invalidate: [['admin-settings']],
+  });
   return (
     <Card className="max-w-2xl space-y-4 p-5">
       <Field label={t('admin.orgName')}>
@@ -550,42 +1000,91 @@ function GeneralTab() {
           </Button>
         </div>
       </Field>
-      {settings.data && <Switch checked={settings.data.anonymousInternal} onCheckedChange={(v) => toggle.mutate(v)} label={t('admin.anonymousInternal')} description={t('admin.anonymousInternalHelp')} />}
+      {settings.data && (
+        <Switch
+          checked={settings.data.anonymousInternal}
+          onCheckedChange={(v) => toggle.mutate(v)}
+          label={t('admin.anonymousInternal')}
+          description={t('admin.anonymousInternalHelp')}
+        />
+      )}
     </Card>
   );
 }
 
 function PoliciesTab() {
   const { t } = useTranslation();
-  const q = useQuery({ queryKey: ['admin-policy'], queryFn: () => api.get<{ document: PolicyDocument }>('admin/policy') });
-  const save = useAction((document: PolicyDocument) => api.put('admin/policy', { document }), { invalidate: [['admin-policy']], success: t('common.done') });
+  const q = useQuery({
+    queryKey: ['admin-policy'],
+    queryFn: () => api.get<{ document: PolicyDocument }>('admin/policy'),
+  });
+  const save = useAction((document: PolicyDocument) => api.put('admin/policy', { document }), {
+    invalidate: [['admin-policy']],
+    success: t('common.done'),
+  });
   return (
     <div>
       <h2 className="mb-3 font-semibold">{t('admin.orgPolicy')}</h2>
-      {q.data && <PolicyEditor value={q.data.document} onSave={(d) => save.mutate(d)} saving={save.isPending} />}
+      {q.data && (
+        <PolicyEditor value={q.data.document} onSave={(d) => save.mutate(d)} saving={save.isPending} />
+      )}
     </div>
   );
 }
 
 function WebhooksTab() {
   const { t } = useTranslation();
-  const hooks = useQuery({ queryKey: ['admin-webhooks'], queryFn: () => api.get<{ id: string; name: string; url: string; events: string[]; format: string; active: boolean }[]>('admin/webhooks') });
+  const hooks = useQuery({
+    queryKey: ['admin-webhooks'],
+    queryFn: () =>
+      api.get<{ id: string; name: string; url: string; events: string[]; format: string; active: boolean }[]>(
+        'admin/webhooks',
+      ),
+  });
   const [open, setOpen] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [f, setF] = useState({ name: '', url: '', events: ['version.published', 'version.blocked', 'review.requested'] as string[], format: 'json' });
-  const create = useAction(() => api.post<{ secret: string }>('admin/webhooks', f), { invalidate: [['admin-webhooks']], onSuccess: (r) => setSecret(r.secret) });
-  const del = useAction((id: string) => api.del(`admin/webhooks/${id}`), { invalidate: [['admin-webhooks']] });
-  const test = useAction((id: string) => api.post<{ status: string; responseStatus: number | null }>(`admin/webhooks/${id}/test`), {
-    invalidate: [['deliveries']],
-    onSuccess: (r) => (r.status === 'success' ? toast.success(`HTTP ${r.responseStatus}`) : toast.error(`HTTP ${r.responseStatus ?? 'error'}`)),
+  const [f, setF] = useState({
+    name: '',
+    url: '',
+    events: ['version.published', 'version.blocked', 'review.requested'] as string[],
+    format: 'json',
   });
+  const create = useAction(() => api.post<{ secret: string }>('admin/webhooks', f), {
+    invalidate: [['admin-webhooks']],
+    onSuccess: (r) => setSecret(r.secret),
+  });
+  const del = useAction((id: string) => api.del(`admin/webhooks/${id}`), {
+    invalidate: [['admin-webhooks']],
+  });
+  const test = useAction(
+    (id: string) => api.post<{ status: string; responseStatus: number | null }>(`admin/webhooks/${id}/test`),
+    {
+      invalidate: [['deliveries']],
+      onSuccess: (r) =>
+        r.status === 'success'
+          ? toast.success(`HTTP ${r.responseStatus}`)
+          : toast.error(`HTTP ${r.responseStatus ?? 'error'}`),
+    },
+  );
   const deliveries = useQuery({
     queryKey: ['deliveries', selected],
-    queryFn: () => api.get<{ id: string; event: string; status: string; attempts: number; responseStatus: number | null; createdAt: string }[]>(`admin/webhooks/${selected}/deliveries`),
+    queryFn: () =>
+      api.get<
+        {
+          id: string;
+          event: string;
+          status: string;
+          attempts: number;
+          responseStatus: number | null;
+          createdAt: string;
+        }[]
+      >(`admin/webhooks/${selected}/deliveries`),
     enabled: !!selected,
   });
-  const redeliver = useAction((id: string) => api.post(`admin/deliveries/${id}/redeliver`), { invalidate: [['deliveries']] });
+  const redeliver = useAction((id: string) => api.post(`admin/deliveries/${id}/redeliver`), {
+    invalidate: [['deliveries']],
+  });
   return (
     <div className="space-y-4">
       <Card>
@@ -605,7 +1104,10 @@ function WebhooksTab() {
           }
         />
         {hooks.data?.map((h) => (
-          <div key={h.id} className={`flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0 ${selected === h.id ? 'bg-panel-hover' : ''}`}>
+          <div
+            key={h.id}
+            className={`flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0 ${selected === h.id ? 'bg-panel-hover' : ''}`}
+          >
             <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setSelected(h.id)}>
               <div className="font-medium">
                 {h.name} <Badge>{h.format}</Badge>
@@ -613,10 +1115,19 @@ function WebhooksTab() {
               <div className="truncate font-mono text-[12px] text-subtle">{h.url}</div>
             </button>
             <span className="hidden text-[12px] text-subtle md:inline">{h.events.length} events</span>
-            <Button size="sm" onClick={() => test.mutate(h.id)} loading={test.isPending && test.variables === h.id}>
+            <Button
+              size="sm"
+              onClick={() => test.mutate(h.id)}
+              loading={test.isPending && test.variables === h.id}
+            >
               {t('admin.sendTest')}
             </Button>
-            <Button variant="ghost" size="icon" aria-label={t('common.delete')} onClick={() => del.mutate(h.id)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t('common.delete')}
+              onClick={() => del.mutate(h.id)}
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -633,7 +1144,9 @@ function WebhooksTab() {
                     <code className="font-mono text-[12px]">{d.event}</code>
                   </Td>
                   <Td>
-                    <Badge tone={d.status === 'success' ? 'ok' : d.status === 'failed' ? 'danger' : 'neutral'}>
+                    <Badge
+                      tone={d.status === 'success' ? 'ok' : d.status === 'failed' ? 'danger' : 'neutral'}
+                    >
                       {d.status} {d.responseStatus ?? ''}
                     </Badge>
                   </Td>
@@ -659,7 +1172,12 @@ function WebhooksTab() {
           secret ? (
             <Button onClick={() => setOpen(false)}>{t('common.done')}</Button>
           ) : (
-            <Button variant="primary" disabled={!f.name || !f.url || !f.events.length} loading={create.isPending} onClick={() => create.mutate(undefined)}>
+            <Button
+              variant="primary"
+              disabled={!f.name || !f.url || !f.events.length}
+              loading={create.isPending}
+              onClick={() => create.mutate(undefined)}
+            >
               {t('common.create')}
             </Button>
           )
@@ -672,7 +1190,7 @@ function WebhooksTab() {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-[1fr_140px]">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_140px]">
               <Field label={t('common.name')}>
                 <Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
               </Field>
@@ -685,14 +1203,24 @@ function WebhooksTab() {
               </Field>
             </div>
             <Field label="URL">
-              <Input value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} placeholder="https://hooks.example.com/dojohub" className="font-mono" />
+              <Input
+                value={f.url}
+                onChange={(e) => setF({ ...f, url: e.target.value })}
+                placeholder="https://hooks.example.com/dojohub"
+                className="font-mono"
+              />
             </Field>
             <Field label={t('admin.events')}>
               <div className="grid gap-1.5 sm:grid-cols-2">
                 {WEBHOOK_EVENTS.map((ev) => (
                   // biome-ignore lint/a11y/noLabelWithoutControl: checkbox inside
                   <label key={ev} className="flex items-center gap-2 text-[12.5px]">
-                    <Checkbox checked={f.events.includes(ev)} onCheckedChange={(on) => setF({ ...f, events: on ? [...f.events, ev] : f.events.filter((x) => x !== ev) })} />
+                    <Checkbox
+                      checked={f.events.includes(ev)}
+                      onCheckedChange={(on) =>
+                        setF({ ...f, events: on ? [...f.events, ev] : f.events.filter((x) => x !== ev) })
+                      }
+                    />
                     <code className="font-mono">{ev}</code>
                   </label>
                 ))}
@@ -707,7 +1235,22 @@ function WebhooksTab() {
 
 function AuditTab() {
   const { t } = useTranslation();
-  const q = useQuery({ queryKey: ['audit'], queryFn: () => api.get<{ id: number; actor: { name: string } | null; actorType: string; action: string; targetType: string | null; targetId: string | null; metadata: Record<string, unknown>; createdAt: string }[]>('admin/audit?limit=200') });
+  const q = useQuery({
+    queryKey: ['audit'],
+    queryFn: () =>
+      api.get<
+        {
+          id: number;
+          actor: { name: string } | null;
+          actorType: string;
+          action: string;
+          targetType: string | null;
+          targetId: string | null;
+          metadata: Record<string, unknown>;
+          createdAt: string;
+        }[]
+      >('admin/audit?limit=200'),
+  });
   return (
     <Card className="overflow-hidden">
       {q.data?.length === 0 && <EmptyState title={t('admin.auditEmpty')} />}
@@ -728,8 +1271,9 @@ function AuditTab() {
               <Td>
                 <code className="font-mono text-[12px]">{e.action}</code>
               </Td>
-              <Td className="max-w-md truncate font-mono text-[11.5px] text-subtle" >
-                {e.targetType ? `${e.targetType}:${e.targetId?.slice(0, 8)}` : ''} {Object.keys(e.metadata).length ? JSON.stringify(e.metadata).slice(0, 120) : ''}
+              <Td className="max-w-md truncate font-mono text-[11.5px] text-subtle">
+                {e.targetType ? `${e.targetType}:${e.targetId?.slice(0, 8)}` : ''}{' '}
+                {Object.keys(e.metadata).length ? JSON.stringify(e.metadata).slice(0, 120) : ''}
               </Td>
             </tr>
           ))}
@@ -752,19 +1296,39 @@ export function AdminPage() {
   return (
     <div>
       <PageHeader icon={<Shield className="h-4 w-4" />} title={t('admin.title')} />
-      <Tabs value={tab} onValueChange={(v) => navigate({ to: '/admin', search: { tab: v }, replace: true })} tabs={tabs.map((x) => ({ value: x, label: t(`admin.${x}`) }))}>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => navigate({ to: '/admin', search: { tab: v }, replace: true })}
+        tabs={tabs.map((x) => ({ value: x, label: t(`admin.${x}`) }))}
+      >
         {admin && (
           <>
-            <TabPanel value="general"><GeneralTab /></TabPanel>
-            <TabPanel value="members"><MembersTab /></TabPanel>
-            <TabPanel value="sso"><SsoTab /></TabPanel>
-            <TabPanel value="access"><AccessTab /></TabPanel>
-            <TabPanel value="verification"><VerificationTab /></TabPanel>
-            <TabPanel value="policies"><PoliciesTab /></TabPanel>
-            <TabPanel value="webhooks"><WebhooksTab /></TabPanel>
+            <TabPanel value="general">
+              <GeneralTab />
+            </TabPanel>
+            <TabPanel value="members">
+              <MembersTab />
+            </TabPanel>
+            <TabPanel value="sso">
+              <SsoTab />
+            </TabPanel>
+            <TabPanel value="access">
+              <AccessTab />
+            </TabPanel>
+            <TabPanel value="verification">
+              <VerificationTab />
+            </TabPanel>
+            <TabPanel value="policies">
+              <PoliciesTab />
+            </TabPanel>
+            <TabPanel value="webhooks">
+              <WebhooksTab />
+            </TabPanel>
           </>
         )}
-        <TabPanel value="audit"><AuditTab /></TabPanel>
+        <TabPanel value="audit">
+          <AuditTab />
+        </TabPanel>
       </Tabs>
     </div>
   );

@@ -15,7 +15,11 @@ export function ConnectPage() {
   const team = me.namespaces.find((n) => n.slug !== 'org')?.slug ?? 'org';
   return (
     <div className="max-w-3xl">
-      <PageHeader icon={<Terminal className="h-4 w-4" />} title={t('connect.title')} description={t('connect.subtitle')} />
+      <PageHeader
+        icon={<Terminal className="h-4 w-4" />}
+        title={t('connect.title')}
+        description={t('connect.subtitle')}
+      />
       <div className="space-y-4">
         <Card>
           <CardHeader title={t('connect.skillsCli')} description={t('connect.skillsCliBody')} />
@@ -39,9 +43,23 @@ export function ConnectPage() {
         <Card>
           <CardHeader title={t('connect.mcp')} description={t('connect.mcpBody')} />
           <div className="space-y-2 p-4">
-            <CopyField value={`claude mcp add --transport http dojohub ${base}/mcp --header "Authorization: Bearer <token>"`} />
+            <CopyField
+              value={`claude mcp add --transport http dojohub ${base}/mcp --header "Authorization: Bearer <token>"`}
+            />
             <pre className="overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-[12px]">
-              {JSON.stringify({ mcpServers: { dojohub: { type: 'http', url: `${base}/mcp`, headers: { Authorization: 'Bearer dojo_pat_…' } } } }, null, 2)}
+              {JSON.stringify(
+                {
+                  mcpServers: {
+                    dojohub: {
+                      type: 'http',
+                      url: `${base}/mcp`,
+                      headers: { Authorization: 'Bearer dojo_pat_…' },
+                    },
+                  },
+                },
+                null,
+                2,
+              )}
             </pre>
           </div>
         </Card>
@@ -58,11 +76,15 @@ export function DevicePage() {
   const [result, setResult] = useState<'approved' | 'denied' | null>(null);
   const lookup = useQuery({
     queryKey: ['device', code],
-    queryFn: () => api.get<{ clientName: string; userCode: string }>(`cli/device/${encodeURIComponent(code)}`),
+    queryFn: () =>
+      api.get<{ clientName: string; userCode: string }>(`cli/device/${encodeURIComponent(code)}`),
     enabled: /^[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(code) && !result,
     retry: false,
   });
-  const decide = useAction((approve: boolean) => api.post('cli/device/approve', { userCode: code, approve }), { onSuccess: (_r) => setResult(decide.variables ? 'approved' : 'denied') });
+  const decide = useAction(
+    (approve: boolean) => api.post('cli/device/approve', { userCode: code, approve }),
+    { onSuccess: (_r) => setResult(decide.variables ? 'approved' : 'denied') },
+  );
   return (
     <div className="mx-auto max-w-md pt-10">
       <Card className="p-6 text-center">
@@ -72,14 +94,24 @@ export function DevicePage() {
         <h1 className="text-[17px] font-semibold">{t('device.title')}</h1>
         {result ? (
           <p className="mt-4 flex items-center justify-center gap-2 text-[14px]">
-            {result === 'approved' ? <CheckCircle2 className="h-5 w-5 text-ok" /> : <XCircle className="h-5 w-5 text-danger" />}
+            {result === 'approved' ? (
+              <CheckCircle2 className="h-5 w-5 text-ok" />
+            ) : (
+              <XCircle className="h-5 w-5 text-danger" />
+            )}
             {t(`device.${result}`)}
           </p>
         ) : (
           <>
             <p className="mt-1 text-[13px] text-muted">{t('device.body')}</p>
             <div className="mt-5">
-              <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ABCD-1234" className="h-11 text-center font-mono text-lg tracking-[0.3em]" aria-label={t('device.enterCode')} />
+              <Input
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="ABCD-1234"
+                className="h-11 text-center font-mono text-lg tracking-[0.3em]"
+                aria-label={t('device.enterCode')}
+              />
             </div>
             {lookup.isFetching && <Spinner className="mx-auto mt-4" />}
             {lookup.isError && <p className="mt-3 text-[12.5px] text-danger">{t('device.invalid')}</p>}

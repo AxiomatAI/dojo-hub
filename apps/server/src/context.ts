@@ -1,11 +1,11 @@
 import { createDb, type Database } from '@dojohub/db';
+import type postgres from 'postgres';
+import { type Auth, createAuth } from './auth/auth';
 import type { Config } from './config';
-import { createAuth, type Auth } from './auth/auth';
 import { SecretBox } from './lib/crypto';
 import type { Jobs } from './lib/jobs';
 import type { Logger } from './lib/logger';
 import { type BlobStore, createBlobStore } from './lib/storage';
-import type postgres from 'postgres';
 
 export interface AppContext {
   config: Config;

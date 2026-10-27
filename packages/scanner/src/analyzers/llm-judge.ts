@@ -5,8 +5,14 @@ import type { Analyzer, Finding, ScanContext } from '../types';
 import { isProbablyText } from '../util';
 
 export const judgeReportSchema = z.object({
-  summary: z.string().describe('Two or three sentences describing what the skill actually does, written for a reviewer.'),
-  category: z.string().describe('Single best category, e.g. "documents", "testing", "devops", "data", "security", "productivity".'),
+  summary: z
+    .string()
+    .describe('Two or three sentences describing what the skill actually does, written for a reviewer.'),
+  category: z
+    .string()
+    .describe(
+      'Single best category, e.g. "documents", "testing", "devops", "data", "security", "productivity".',
+    ),
   tags: z.array(z.string()).max(8),
   security: z.object({
     verdict: z.enum(['safe', 'suspicious', 'malicious']),
@@ -22,7 +28,12 @@ export const judgeReportSchema = z.object({
       .max(20),
   }),
   claimsMatch: z.object({
-    score: z.number().int().min(0).max(100).describe('How well the content matches the name/description (100 = exactly).'),
+    score: z
+      .number()
+      .int()
+      .min(0)
+      .max(100)
+      .describe('How well the content matches the name/description (100 = exactly).'),
     explanation: z.string(),
     mismatches: z.array(z.string()).max(10),
   }),
@@ -59,7 +70,9 @@ by itself; flag behaviour that is unexpected for the stated purpose.`;
 function renderFiles(files: Map<string, Uint8Array>, budget: number): string {
   const parts: string[] = [];
   let used = 0;
-  const ordered = [...files.keys()].sort((a, b) => (a === 'SKILL.md' ? -1 : b === 'SKILL.md' ? 1 : a.localeCompare(b)));
+  const ordered = [...files.keys()].sort((a, b) =>
+    a === 'SKILL.md' ? -1 : b === 'SKILL.md' ? 1 : a.localeCompare(b),
+  );
   for (const path of ordered) {
     const bytes = files.get(path)!;
     if (!isProbablyText(path, bytes)) {
@@ -122,7 +135,9 @@ export function llmJudgeAnalyzer(opts: JudgeOptions): Analyzer {
         '<skill_content>',
         renderFiles(ctx.files, diff ? budget - Math.floor(budget / 3) : budget),
         '</skill_content>',
-        diff ? `<previous_version_diff from="${ctx.previous!.version}">\n${diff}\n</previous_version_diff>` : '',
+        diff
+          ? `<previous_version_diff from="${ctx.previous!.version}">\n${diff}\n</previous_version_diff>`
+          : '',
         'Produce your structured assessment.',
       ].join('\n');
       const runs = Math.max(1, Math.min(opts.consensus ?? 1, 5));
@@ -141,7 +156,8 @@ export function llmJudgeAnalyzer(opts: JudgeOptions): Analyzer {
         tokens += res.usage?.totalTokens ?? 0;
       }
       const worst = reports.reduce((a, b) => (ORDER[b.security.verdict] > ORDER[a.security.verdict] ? b : a));
-      const avg = (f: (r: JudgeReport) => number) => Math.round(reports.reduce((s, r) => s + f(r), 0) / reports.length);
+      const avg = (f: (r: JudgeReport) => number) =>
+        Math.round(reports.reduce((s, r) => s + f(r), 0) / reports.length);
       const report: JudgeReport = {
         ...worst,
         claimsMatch: { ...worst.claimsMatch, score: avg((r) => r.claimsMatch.score) },
@@ -170,7 +186,12 @@ export function llmJudgeAnalyzer(opts: JudgeOptions): Analyzer {
           message: `Update review: ${report.update.summary}`,
         });
       }
-      const verdict = report.security.verdict === 'malicious' ? 'fail' : report.security.verdict === 'suspicious' ? 'warn' : 'pass';
+      const verdict =
+        report.security.verdict === 'malicious'
+          ? 'fail'
+          : report.security.verdict === 'suspicious'
+            ? 'warn'
+            : 'pass';
       return {
         analyzer: 'llm',
         status: 'done',

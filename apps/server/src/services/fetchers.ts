@@ -107,7 +107,8 @@ async function readTree(root: string, warnings: string[]): Promise<FileMap> {
           continue;
         }
         total += st.size;
-        if (total > MAX_REPO_BYTES) throw new AppError(413, 'repo_too_large', 'Repository snapshot exceeds 200 MB');
+        if (total > MAX_REPO_BYTES)
+          throw new AppError(413, 'repo_too_large', 'Repository snapshot exceeds 200 MB');
         files.set(relative(root, full).split('\\').join('/'), new Uint8Array(await readFile(full)));
       }
     }
@@ -117,11 +118,20 @@ async function readTree(root: string, warnings: string[]): Promise<FileMap> {
 }
 
 function gitEnv(): NodeJS.ProcessEnv {
-  return { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: 'echo', GIT_SSH_COMMAND: 'ssh -o BatchMode=yes' };
+  return {
+    ...process.env,
+    GIT_TERMINAL_PROMPT: '0',
+    GIT_ASKPASS: 'echo',
+    GIT_SSH_COMMAND: 'ssh -o BatchMode=yes',
+  };
 }
 
 /** Shallow-clone a repository at a ref and return a full local snapshot of its files. */
-export async function fetchGit(src: ResolvedGitSource, credential: string | null, workDir?: string): Promise<FetchResult> {
+export async function fetchGit(
+  src: ResolvedGitSource,
+  credential: string | null,
+  workDir?: string,
+): Promise<FetchResult> {
   const dir = await mkdtemp(join(workDir ?? tmpdir(), 'dojo-src-'));
   const warnings: string[] = [];
   const auth: string[] = [];
@@ -131,17 +141,31 @@ export async function fetchGit(src: ResolvedGitSource, credential: string | null
   }
   try {
     const isSha = !!src.ref && /^[0-9a-f]{7,40}$/i.test(src.ref);
-    const args = [...auth, '-c', 'core.symlinks=false', 'clone', '--depth', '1', '--no-tags', '--single-branch'];
+    const args = [
+      ...auth,
+      '-c',
+      'core.symlinks=false',
+      'clone',
+      '--depth',
+      '1',
+      '--no-tags',
+      '--single-branch',
+    ];
     if (src.ref && !isSha) args.push('--branch', src.ref);
     args.push(src.cloneUrl, dir);
     await exec('git', args, { env: gitEnv(), timeout: 120_000, maxBuffer: 10 * 1024 * 1024 });
     if (isSha) {
-      await exec('git', [...auth, '-C', dir, 'fetch', '--depth', '1', 'origin', src.ref!], { env: gitEnv(), timeout: 120_000 });
+      await exec('git', [...auth, '-C', dir, 'fetch', '--depth', '1', 'origin', src.ref!], {
+        env: gitEnv(),
+        timeout: 120_000,
+      });
       await exec('git', ['-C', dir, 'checkout', '--quiet', 'FETCH_HEAD'], { env: gitEnv() });
     }
     const { stdout } = await exec('git', ['-C', dir, 'rev-parse', 'HEAD'], { env: gitEnv() });
     let files = await readTree(dir, warnings);
-    const lfs = [...files].filter(([, b]) => utf8.decode(b.subarray(0, 40)).startsWith('version https://git-lfs'));
+    const lfs = [...files].filter(([, b]) =>
+      utf8.decode(b.subarray(0, 40)).startsWith('version https://git-lfs'),
+    );
     if (lfs.length) {
       try {
         await exec('git', [...auth, '-C', dir, 'lfs', 'pull'], { env: gitEnv(), timeout: 120_000 });
@@ -150,7 +174,8 @@ export async function fetchGit(src: ResolvedGitSource, credential: string | null
         warnings.push(`${lfs.length} Git LFS pointer(s) could not be resolved (git-lfs unavailable)`);
       }
     }
-    if (files.has('.gitmodules')) warnings.push('Repository uses git submodules; submodules are not followed');
+    if (files.has('.gitmodules'))
+      warnings.push('Repository uses git submodules; submodules are not followed');
     return {
       files: src.subPath ? subTree(files, src.subPath) : files,
       commit: stdout.trim(),
@@ -202,8 +227,10 @@ export async function fetchWellKnown(rawUrl: string, fetchImpl: typeof fetch = f
           const r = await fetchImpl(artifactUrl, { signal: AbortSignal.timeout(30_000) });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const bytes = new Uint8Array(await r.arrayBuffer());
-          if (entry.digest && `sha256:${await sha256Hex(bytes)}` !== entry.digest) throw new Error('digest mismatch');
-          const skillFiles = entry.type === 'archive' ? stripSingleRoot(readArchive(bytes)) : new Map([['SKILL.md', bytes]]);
+          if (entry.digest && `sha256:${await sha256Hex(bytes)}` !== entry.digest)
+            throw new Error('digest mismatch');
+          const skillFiles =
+            entry.type === 'archive' ? stripSingleRoot(readArchive(bytes)) : new Map([['SKILL.md', bytes]]);
           for (const [p, b] of skillFiles) files.set(`skills/${name}/${p}`, b);
         } else {
           const list = Array.isArray(entry.files) ? (entry.files as string[]) : ['SKILL.md'];
@@ -234,11 +261,21 @@ export async function searchSkillsSh(q: string, fetchImpl: typeof fetch = fetch)
   const res = await fetchImpl(`https://skills.sh/api/search?q=${encodeURIComponent(q)}&limit=30`, {
     signal: AbortSignal.timeout(10_000),
   });
-  if (!res.ok) throw new AppError(502, 'skills_sh_unavailable', `skills.sh search failed (HTTP ${res.status})`);
-  const data = (await res.json()) as { skills?: { id: string; name: string; source: string; installs?: number }[] };
-  return (data.skills ?? []).map((s) => ({ id: s.id, name: s.name, source: s.source, installs: s.installs ?? 0 }));
+  if (!res.ok)
+    throw new AppError(502, 'skills_sh_unavailable', `skills.sh search failed (HTTP ${res.status})`);
+  const data = (await res.json()) as {
+    skills?: { id: string; name: string; source: string; installs?: number }[];
+  };
+  return (data.skills ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    source: s.source,
+    installs: s.installs ?? 0,
+  }));
 }
 
 export function uploadSnapshot(bytes: Uint8Array): FileMap {
-  return stripSingleRoot(readArchive(bytes, { maxFiles: 5000, maxTotalBytes: 200 * 1024 * 1024, maxFileBytes: 10 * 1024 * 1024 }));
+  return stripSingleRoot(
+    readArchive(bytes, { maxFiles: 5000, maxTotalBytes: 200 * 1024 * 1024, maxFileBytes: 10 * 1024 * 1024 }),
+  );
 }

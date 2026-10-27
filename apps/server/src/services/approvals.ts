@@ -1,9 +1,9 @@
 import type { Decision, PolicyDocument } from '@dojohub/contract';
 import {
+  type Approvers,
   approvalDecision,
   approvalRequest,
   approvalStage,
-  type Approvers,
   groupMembership,
   idpGroup,
   namespaceMember,
@@ -69,33 +69,53 @@ export async function createApprovalRequest(
 }
 
 async function suiteOrg(ctx: AppContext, suiteVersionId: string) {
-  const [sv] = await ctx.db.select({ orgId: suiteVersion.orgId }).from(suiteVersion).where(eq(suiteVersion.id, suiteVersionId));
+  const [sv] = await ctx.db
+    .select({ orgId: suiteVersion.orgId })
+    .from(suiteVersion)
+    .where(eq(suiteVersion.id, suiteVersionId));
   return sv!.orgId;
 }
 
 /** Users who may decide on a stage (for notifications). */
-export async function stageApproverIds(ctx: AppContext, orgId: string, namespaceId: string, approvers: Approvers): Promise<string[]> {
+export async function stageApproverIds(
+  ctx: AppContext,
+  orgId: string,
+  namespaceId: string,
+  approvers: Approvers,
+): Promise<string[]> {
   const ids = new Set(approvers.users ?? []);
   if (approvers.groups?.length) {
     const rows = await ctx.db
       .select({ userId: groupMembership.userId })
       .from(groupMembership)
       .innerJoin(idpGroup, eq(idpGroup.id, groupMembership.groupId))
-      .where(and(eq(idpGroup.orgId, orgId), or(inArray(idpGroup.externalId, approvers.groups), inArray(idpGroup.id, approvers.groups))));
-    rows.forEach((r) => ids.add(r.userId));
+      .where(
+        and(
+          eq(idpGroup.orgId, orgId),
+          or(inArray(idpGroup.externalId, approvers.groups), inArray(idpGroup.id, approvers.groups)),
+        ),
+      );
+    for (const r of rows) ids.add(r.userId);
   }
   for (const role of approvers.roles ?? []) {
     const orgRows = await ctx.db
       .select({ userId: orgMember.userId })
       .from(orgMember)
       .where(and(eq(orgMember.orgId, orgId), eq(orgMember.role, role as never)));
-    orgRows.forEach((r) => ids.add(r.userId));
-    const nsRoles = role === 'reviewer' ? ['reviewer', 'maintainer', 'owner'] : role === 'maintainer' ? ['maintainer', 'owner'] : [role];
+    for (const r of orgRows) ids.add(r.userId);
+    const nsRoles =
+      role === 'reviewer'
+        ? ['reviewer', 'maintainer', 'owner']
+        : role === 'maintainer'
+          ? ['maintainer', 'owner']
+          : [role];
     const nsRows = await ctx.db
       .select({ userId: namespaceMember.userId })
       .from(namespaceMember)
-      .where(and(eq(namespaceMember.namespaceId, namespaceId), inArray(namespaceMember.role, nsRoles as never[])));
-    nsRows.forEach((r) => ids.add(r.userId));
+      .where(
+        and(eq(namespaceMember.namespaceId, namespaceId), inArray(namespaceMember.role, nsRoles as never[])),
+      );
+    for (const r of nsRows) ids.add(r.userId);
   }
   return [...ids];
 }
@@ -108,7 +128,9 @@ async function notifyStage(ctx: AppContext, requestId: string) {
     .where(and(eq(approvalStage.requestId, requestId), eq(approvalStage.status, 'active')));
   if (!req || !stage) return;
   const subject = await describeSubject(ctx, req);
-  const users = (await stageApproverIds(ctx, req.orgId, req.namespaceId, stage.approvers)).filter((u) => u !== req.requestedBy);
+  const users = (await stageApproverIds(ctx, req.orgId, req.namespaceId, stage.approvers)).filter(
+    (u) => u !== req.requestedBy,
+  );
   await notify(ctx, req.orgId, users, {
     kind: 'review.requested',
     title: `Review requested: ${subject.label}`,
@@ -119,7 +141,12 @@ async function notifyStage(ctx: AppContext, requestId: string) {
     ctx,
     req.orgId,
     'review.requested',
-    { requestId: req.id, stage: stage.name, subject: subject.label, link: `${ctx.config.DOJO_BASE_URL}/reviews/${req.id}` },
+    {
+      requestId: req.id,
+      stage: stage.name,
+      subject: subject.label,
+      link: `${ctx.config.DOJO_BASE_URL}/reviews/${req.id}`,
+    },
     { namespaceId: req.namespaceId },
   );
 }
@@ -168,14 +195,24 @@ export function canDecideStage(
   return (a.roles ?? []).some((r) => actorHasRole(actor, r, namespaceId));
 }
 
-export async function decideRequest(ctx: AppContext, actor: Actor, requestId: string, decision: Decision, comment?: string) {
+export async function decideRequest(
+  ctx: AppContext,
+  actor: Actor,
+  requestId: string,
+  decision: Decision,
+  comment?: string,
+) {
   const [req] = await ctx.db
     .select()
     .from(approvalRequest)
     .where(and(eq(approvalRequest.orgId, actor.orgId), eq(approvalRequest.id, requestId)));
   if (!req) throw notFound('Review');
   if (req.status !== 'pending') throw conflict('This review is already closed');
-  const stages = await ctx.db.select().from(approvalStage).where(eq(approvalStage.requestId, req.id)).orderBy(asc(approvalStage.position));
+  const stages = await ctx.db
+    .select()
+    .from(approvalStage)
+    .where(eq(approvalStage.requestId, req.id))
+    .orderBy(asc(approvalStage.position));
   const stage = stages.find((s) => s.status === 'active');
   if (!stage) throw conflict('No active stage');
   const keys = await actorGroupKeys(ctx, actor);
@@ -197,16 +234,32 @@ export async function decideRequest(ctx: AppContext, actor: Actor, requestId: st
     decision,
     comment: comment ?? null,
   });
-  await audit(ctx, { orgId: actor.orgId, actorId: actor.userId, action: `review.${decision}`, targetType: 'approval_request', targetId: req.id, metadata: { stage: stage.name } });
+  await audit(ctx, {
+    orgId: actor.orgId,
+    actorId: actor.userId,
+    action: `review.${decision}`,
+    targetType: 'approval_request',
+    targetId: req.id,
+    metadata: { stage: stage.name },
+  });
 
   if (decision !== 'approve') {
-    await ctx.db.update(approvalStage).set({ status: 'rejected', completedAt: new Date() }).where(eq(approvalStage.id, stage.id));
+    await ctx.db
+      .update(approvalStage)
+      .set({ status: 'rejected', completedAt: new Date() })
+      .where(eq(approvalStage.id, stage.id));
     await ctx.db
       .update(approvalRequest)
       .set({ status: decision === 'reject' ? 'rejected' : 'cancelled', closedAt: new Date() })
       .where(eq(approvalRequest.id, req.id));
     await closeSubject(ctx, req, decision === 'reject' ? 'rejected' : 'draft', comment ?? null);
-    await emit(ctx, req.orgId, 'review.decided', { requestId: req.id, decision, stage: stage.name, by: actor.email }, { namespaceId: req.namespaceId });
+    await emit(
+      ctx,
+      req.orgId,
+      'review.decided',
+      { requestId: req.id, decision, stage: stage.name, by: actor.email },
+      { namespaceId: req.namespaceId },
+    );
     return;
   }
   const approvals = await ctx.db
@@ -214,20 +267,41 @@ export async function decideRequest(ctx: AppContext, actor: Actor, requestId: st
     .from(approvalDecision)
     .where(and(eq(approvalDecision.stageId, stage.id), eq(approvalDecision.decision, 'approve')));
   if (approvals.length < stage.minApprovals) {
-    await emit(ctx, req.orgId, 'review.decided', { requestId: req.id, decision, stage: stage.name, by: actor.email, pending: true }, { namespaceId: req.namespaceId });
+    await emit(
+      ctx,
+      req.orgId,
+      'review.decided',
+      { requestId: req.id, decision, stage: stage.name, by: actor.email, pending: true },
+      { namespaceId: req.namespaceId },
+    );
     return;
   }
-  await ctx.db.update(approvalStage).set({ status: 'approved', completedAt: new Date() }).where(eq(approvalStage.id, stage.id));
+  await ctx.db
+    .update(approvalStage)
+    .set({ status: 'approved', completedAt: new Date() })
+    .where(eq(approvalStage.id, stage.id));
   const next = stages.find((s) => s.position > stage.position && s.status === 'waiting');
   if (next) {
     await ctx.db.update(approvalStage).set({ status: 'active' }).where(eq(approvalStage.id, next.id));
-    await ctx.db.update(approvalRequest).set({ currentStage: next.position }).where(eq(approvalRequest.id, req.id));
+    await ctx.db
+      .update(approvalRequest)
+      .set({ currentStage: next.position })
+      .where(eq(approvalRequest.id, req.id));
     await notifyStage(ctx, req.id);
   } else {
-    await ctx.db.update(approvalRequest).set({ status: 'approved', closedAt: new Date() }).where(eq(approvalRequest.id, req.id));
+    await ctx.db
+      .update(approvalRequest)
+      .set({ status: 'approved', closedAt: new Date() })
+      .where(eq(approvalRequest.id, req.id));
     await closeSubject(ctx, req, 'approved', comment ?? null);
   }
-  await emit(ctx, req.orgId, 'review.decided', { requestId: req.id, decision, stage: stage.name, by: actor.email }, { namespaceId: req.namespaceId });
+  await emit(
+    ctx,
+    req.orgId,
+    'review.decided',
+    { requestId: req.id, decision, stage: stage.name, by: actor.email },
+    { namespaceId: req.namespaceId },
+  );
 }
 
 async function closeSubject(

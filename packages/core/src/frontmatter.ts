@@ -11,7 +11,12 @@ const FM_RE = /^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 
 export function parseSkillMd(content: string): ParsedSkillMd {
   if (/^﻿?---js\b/.test(content)) {
-    return { frontmatter: {}, body: content, hasFrontmatter: false, error: 'JavaScript frontmatter is not allowed' };
+    return {
+      frontmatter: {},
+      body: content,
+      hasFrontmatter: false,
+      error: 'JavaScript frontmatter is not allowed',
+    };
   }
   const m = FM_RE.exec(content);
   if (!m) return { frontmatter: {}, body: content, hasFrontmatter: false };

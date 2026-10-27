@@ -13,11 +13,23 @@ export function SuitesPage() {
   const q = useQuery({ queryKey: ['suites'], queryFn: () => api.get<SuiteDto[]>('suites') });
   return (
     <div>
-      <PageHeader icon={<Boxes className="h-4 w-4" />} title={t('suites.title')} description={t('suites.subtitle')} />
+      <PageHeader
+        icon={<Boxes className="h-4 w-4" />}
+        title={t('suites.title')}
+        description={t('suites.subtitle')}
+      />
       {q.isLoading && <Skeleton className="h-40" />}
       {q.data?.length === 0 && (
         <Card>
-          <EmptyState icon={<Boxes className="h-5 w-5" />} title={t('suites.empty')} action={<Link to="/sources/new" search={{ preset: undefined, url: undefined }} className="text-accent">{t('sources.new')} →</Link>} />
+          <EmptyState
+            icon={<Boxes className="h-5 w-5" />}
+            title={t('suites.empty')}
+            action={
+              <Link to="/sources/new" search={{ preset: undefined, url: undefined }} className="text-accent">
+                {t('sources.new')} →
+              </Link>
+            }
+          />
         </Card>
       )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -55,7 +67,19 @@ export function SuiteDetailPage() {
   const { ns, name } = useParams({ from: '/app/suites/$ns/$name' });
   const q = useQuery({
     queryKey: ['suite', ns, name],
-    queryFn: () => api.get<SuiteDto & { versions: { id: string; version: string; status: string; statusReason: string | null; createdAt: string; assets: { path: string }[] }[] }>(`suites/${ns}/${name}`),
+    queryFn: () =>
+      api.get<
+        SuiteDto & {
+          versions: {
+            id: string;
+            version: string;
+            status: string;
+            statusReason: string | null;
+            createdAt: string;
+            assets: { path: string }[];
+          }[];
+        }
+      >(`suites/${ns}/${name}`),
   });
   if (q.isLoading) return <Skeleton className="h-64" />;
   const s = q.data;
@@ -66,7 +90,7 @@ export function SuiteDetailPage() {
         <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-accent-soft text-accent">
           <Boxes className="h-6 w-6" />
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[16rem] flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[22px] font-semibold tracking-tight">{s.displayName}</h1>
             <StatusPill status={s.status} />
@@ -75,10 +99,19 @@ export function SuiteDetailPage() {
           <div className="mt-2 flex flex-wrap gap-x-4 text-[12.5px] text-subtle">
             <span>@{s.namespace}</span>
             {s.publishedVersion && <span>v{s.publishedVersion}</span>}
-            {s.author && <span>{t('suites.author')}: {s.author}</span>}
+            {s.author && (
+              <span>
+                {t('suites.author')}: {s.author}
+              </span>
+            )}
             {s.license && <span>{s.license}</span>}
             {s.homepage && (
-              <a href={s.homepage} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-fg">
+              <a
+                href={s.homepage}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 hover:text-fg"
+              >
                 {t('suites.homepage')} <ExternalLink className="h-3 w-3" />
               </a>
             )}
@@ -86,11 +119,20 @@ export function SuiteDetailPage() {
         </div>
         {s.install && s.publishedVersion && <InstallMenu install={s.install} />}
       </div>
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <Card className="overflow-hidden">
-          <CardHeader title={t('suites.members')} description={t('count.skills', { count: s.members?.length ?? 0 })} />
+          <CardHeader
+            title={t('suites.members')}
+            description={t('count.skills', { count: s.members?.length ?? 0 })}
+          />
           {s.members?.map((m) => (
-            <Link key={m.versionId} to="/skills/$name" params={{ name: m.name }} search={{ tab: undefined }} className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0 hover:bg-panel-hover">
+            <Link
+              key={m.versionId}
+              to="/skills/$name"
+              params={{ name: m.name }}
+              search={{ tab: undefined }}
+              className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0 hover:bg-panel-hover"
+            >
               <SkillGlyph name={m.name} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 font-medium">
@@ -113,7 +155,10 @@ export function SuiteDetailPage() {
         <Card className="h-fit overflow-hidden">
           <CardHeader title={t('common.versions')} />
           {s.versions.map((v) => (
-            <div key={v.id} className="flex items-center gap-2 border-b border-border px-4 py-2 text-[13px] last:border-b-0">
+            <div
+              key={v.id}
+              className="flex items-center gap-2 border-b border-border px-4 py-2 text-[13px] last:border-b-0"
+            >
               <code className="font-mono font-medium">v{v.version}</code>
               <StatusPill status={v.status as never} />
               <span className="ml-auto text-[12px] text-subtle">{formatDate(v.createdAt)}</span>

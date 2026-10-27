@@ -1,5 +1,5 @@
 import { assetsAnalyzer } from './analyzers/assets';
-import { decisionModelAnalyzer, type DecisionModelOptions } from './analyzers/decision-model';
+import { type DecisionModelOptions, decisionModelAnalyzer } from './analyzers/decision-model';
 import { dependenciesAnalyzer } from './analyzers/dependencies';
 import { type JudgeOptions, llmJudgeAnalyzer } from './analyzers/llm-judge';
 import { secretsAnalyzer } from './analyzers/secrets';
@@ -53,7 +53,12 @@ export async function runScan(ctx: ScanContext, config: ScanConfig = {}): Promis
   else results.push({ analyzer: 'llm', status: 'skipped', findings: [] });
   if (config.decisionModel) {
     results.push(
-      await safeRun(decisionModelAnalyzer({ ...config.decisionModel, priorFindings: () => results.flatMap((r) => r.findings) })),
+      await safeRun(
+        decisionModelAnalyzer({
+          ...config.decisionModel,
+          priorFindings: () => results.flatMap((r) => r.findings),
+        }),
+      ),
     );
   }
   return results;

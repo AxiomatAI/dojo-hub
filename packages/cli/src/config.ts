@@ -12,7 +12,8 @@ export interface CliConfig {
   registries: Record<string, Registry>;
 }
 
-export const CONFIG_DIR = process.env.DOJO_CONFIG_DIR ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'dojo');
+export const CONFIG_DIR =
+  process.env.DOJO_CONFIG_DIR ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'dojo');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 const CREDENTIALS_FILE = join(CONFIG_DIR, 'credentials.json');
 const SERVICE = 'dojohub';
@@ -54,11 +55,19 @@ export async function currentRegistry(override?: string): Promise<Registry & { n
   return { name: cfg.current, ...cfg.registries[cfg.current]! };
 }
 
-type Keyring = { Entry: new (service: string, account: string) => { getPassword(): string | null; setPassword(p: string): void; deletePassword(): boolean } };
+type Keyring = {
+  Entry: new (
+    service: string,
+    account: string,
+  ) => { getPassword(): string | null; setPassword(p: string): void; deletePassword(): boolean };
+};
 let keyring: Keyring | null | undefined;
 async function loadKeyring(): Promise<Keyring | null> {
   if (keyring !== undefined) return keyring;
-  if (process.env.DOJO_NO_KEYCHAIN) return (keyring = null);
+  if (process.env.DOJO_NO_KEYCHAIN) {
+    keyring = null;
+    return keyring;
+  }
   try {
     keyring = (await import('@napi-rs/keyring')) as unknown as Keyring;
   } catch {

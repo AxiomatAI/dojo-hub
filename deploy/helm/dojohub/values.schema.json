@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["baseUrl", "image"],
+  "properties": {
+    "baseUrl": { "type": "string", "pattern": "^https?://" },
+    "existingSecret": { "type": "string" },
+    "secretKey": { "type": "string" },
+    "database": { "type": "object", "properties": { "url": { "type": "string" } } },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "local": { "type": "boolean" },
+        "bootstrapAdminEmail": { "type": "string" },
+        "setupToken": { "type": "string" }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "properties": {
+        "driver": { "enum": ["fs", "s3"] },
+        "s3": { "type": "object" }
+      }
+    },
+    "server": { "type": "object", "properties": { "replicas": { "type": "integer", "minimum": 0 } } },
+    "worker": { "type": "object", "properties": { "replicas": { "type": "integer", "minimum": 0 } } },
+    "image": {
+      "type": "object",
+      "required": ["repository"],
+      "properties": { "repository": { "type": "string" }, "tag": { "type": "string" }, "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] } }
+    }
+  }
+}

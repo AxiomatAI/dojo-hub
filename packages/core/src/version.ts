@@ -38,7 +38,8 @@ export function suggestBump(
 ): BumpKind {
   if (prevFrontmatter.name !== nextFrontmatter.name) return 'major';
   const keys = ['description', 'allowed-tools', 'compatibility'];
-  if (keys.some((k) => JSON.stringify(prevFrontmatter[k]) !== JSON.stringify(nextFrontmatter[k]))) return 'minor';
+  if (keys.some((k) => JSON.stringify(prevFrontmatter[k]) !== JSON.stringify(nextFrontmatter[k])))
+    return 'minor';
   if (removedFiles > 0) return 'minor';
   return 'patch';
 }

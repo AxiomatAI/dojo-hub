@@ -24,7 +24,10 @@ export async function ensureOrg(ctx: AppContext, name: string): Promise<string> 
   return ctx.db.transaction(async (tx) => {
     const [existing] = await tx.select({ id: organization.id }).from(organization).limit(1);
     if (existing) return existing.id;
-    const [org] = await tx.insert(organization).values({ slug: 'default', name }).returning({ id: organization.id });
+    const [org] = await tx
+      .insert(organization)
+      .values({ slug: 'default', name })
+      .returning({ id: organization.id });
     const orgId = org!.id;
     await tx.insert(namespace).values({
       orgId,

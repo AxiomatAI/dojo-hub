@@ -1,7 +1,7 @@
 import { type Context, Hono } from 'hono';
 import { z } from 'zod';
 import type { Env } from '../auth/actor';
-import { type Actor } from '../auth/permissions';
+import type { Actor } from '../auth/permissions';
 import type { AppContext } from '../context';
 import { unauthorized } from './errors';
 
@@ -44,7 +44,10 @@ export class Api {
   op<B extends z.ZodType | undefined = undefined, Q extends z.ZodType | undefined = undefined>(
     meta: OpMeta<B, Q>,
     handler: (
-      args: OpArgs<B extends z.ZodType ? z.infer<B> : undefined, Q extends z.ZodType ? z.infer<Q> : undefined> & {
+      args: OpArgs<
+        B extends z.ZodType ? z.infer<B> : undefined,
+        Q extends z.ZodType ? z.infer<Q> : undefined
+      > & {
         actor: Actor;
       },
     ) => Promise<Response | unknown>,
@@ -86,7 +89,12 @@ export class Api {
     };
     for (const { meta } of this.ops) {
       const path = meta.path.replace(/:([A-Za-z_]+)\{[^}]*\}/g, '{$1}').replace(/:([A-Za-z_]+)/g, '{$1}');
-      const params = [...path.matchAll(/\{([A-Za-z_]+)\}/g)].map((m) => ({ name: m[1], in: 'path', required: true, schema: { type: 'string' } }));
+      const params = [...path.matchAll(/\{([A-Za-z_]+)\}/g)].map((m) => ({
+        name: m[1],
+        in: 'path',
+        required: true,
+        schema: { type: 'string' },
+      }));
       if (meta.query) {
         const js = toJson(meta.query) as { properties?: Record<string, unknown>; required?: string[] };
         for (const [name, schema] of Object.entries(js.properties ?? {})) {
@@ -100,13 +108,26 @@ export class Api {
         tags: meta.tags,
         parameters: params,
         security: meta.public ? [] : [{ bearer: [] }, { session: [] }],
-        ...(meta.body ? { requestBody: { required: true, content: { 'application/json': { schema: toJson(meta.body) } } } } : {}),
-        responses: { 200: { description: 'OK' }, 401: { description: 'Unauthorized' }, 403: { description: 'Forbidden' } },
+        ...(meta.body
+          ? {
+              requestBody: { required: true, content: { 'application/json': { schema: toJson(meta.body) } } },
+            }
+          : {}),
+        responses: {
+          200: { description: 'OK' },
+          401: { description: 'Unauthorized' },
+          403: { description: 'Forbidden' },
+        },
       };
     }
     return {
       openapi: '3.1.0',
-      info: { title: info.title, version: info.version, description: 'DojoHub REST API. Authenticate with a personal access token (`Authorization: Bearer dojo_pat_…`).' },
+      info: {
+        title: info.title,
+        version: info.version,
+        description:
+          'DojoHub REST API. Authenticate with a personal access token (`Authorization: Bearer dojo_pat_…`).',
+      },
       servers: [{ url: info.serverUrl }],
       components: {
         securitySchemes: {

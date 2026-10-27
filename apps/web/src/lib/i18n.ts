@@ -1,4 +1,4 @@
-import { type Locale, LOCALES, matchLocale, resources } from '@dojohub/i18n';
+import { LOCALES, type Locale, matchLocale, resources } from '@dojohub/i18n';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
@@ -10,7 +10,8 @@ const stored = (() => {
   }
 })();
 
-export const initialLocale: Locale = stored && LOCALES.includes(stored) ? stored : matchLocale(navigator.languages ?? [navigator.language]);
+export const initialLocale: Locale =
+  stored && LOCALES.includes(stored) ? stored : matchLocale(navigator.languages ?? [navigator.language]);
 
 i18n.use(initReactI18next).init({
   resources,

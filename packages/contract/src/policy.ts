@@ -28,7 +28,13 @@ export const policyDocumentSchema = z.object({
       /** Reject on exact duplicates of existing approved skills. */
       rejectExactDuplicates: z.boolean().default(false),
     })
-    .default({ maxRisk: 'high', requireLlmVerification: false, blockOn: ['secret'], minClaimsScore: 0, rejectExactDuplicates: false }),
+    .default({
+      maxRisk: 'high',
+      requireLlmVerification: false,
+      blockOn: ['secret'],
+      minClaimsScore: 0,
+      rejectExactDuplicates: false,
+    }),
   stages: z.array(policyStageSchema).max(10).default([]),
   updates: z
     .object({
@@ -55,7 +61,12 @@ export type PolicyStage = z.infer<typeof policyStageSchema>;
 export const DEFAULT_POLICY: PolicyDocument = policyDocumentSchema.parse({
   gates: { maxRisk: 'high', requireLlmVerification: false, blockOn: ['secret'], minClaimsScore: 0 },
   stages: [
-    { name: 'Security review', when: 'risk >= "medium" or has_asset("script")', approvers: { roles: ['security_reviewer'] }, min: 1 },
+    {
+      name: 'Security review',
+      when: 'risk >= "medium" or has_asset("script")',
+      approvers: { roles: ['security_reviewer'] },
+      min: 1,
+    },
     { name: 'Team approval', approvers: { roles: ['maintainer'] }, min: 1 },
   ],
   updates: { mode: 'auto_if_low_risk', llmDiffReview: true, maxRisk: 'low', majorRequiresManual: true },

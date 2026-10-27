@@ -36,7 +36,10 @@ export async function teamBundle(ctx: AppContext, ns: NamespaceRow): Promise<Bun
   const out = new Map<string, Bundle>();
   for (const e of entries) {
     if (e.skillId) {
-      const [s] = await ctx.db.select().from(skill).where(and(eq(skill.id, e.skillId), isNull(skill.archivedAt)));
+      const [s] = await ctx.db
+        .select()
+        .from(skill)
+        .where(and(eq(skill.id, e.skillId), isNull(skill.archivedAt)));
       if (!s) continue;
       const v = await installableVersion(ctx, s.id, e.pinnedVersion);
       const [home] = await ctx.db.select().from(namespace).where(eq(namespace.id, s.namespaceId));
@@ -48,7 +51,11 @@ export async function teamBundle(ctx: AppContext, ns: NamespaceRow): Promise<Bun
   return [...out.values()].sort((a, b) => a.skill.name.localeCompare(b.skill.name));
 }
 
-export async function suiteBundle(ctx: AppContext, suiteId: string, selector?: string | null): Promise<Bundle[]> {
+export async function suiteBundle(
+  ctx: AppContext,
+  suiteId: string,
+  selector?: string | null,
+): Promise<Bundle[]> {
   const sv = await installableSuiteVersion(ctx, suiteId, selector);
   if (!sv) return [];
   const out: Bundle[] = [];
@@ -67,7 +74,9 @@ export async function findSkill(ctx: AppContext, orgId: string, nsSlug: string, 
     .select({ skill, namespace })
     .from(skill)
     .innerJoin(namespace, eq(namespace.id, skill.namespaceId))
-    .where(and(eq(skill.orgId, orgId), eq(namespace.slug, nsSlug), eq(skill.name, name), isNull(skill.archivedAt)));
+    .where(
+      and(eq(skill.orgId, orgId), eq(namespace.slug, nsSlug), eq(skill.name, name), isNull(skill.archivedAt)),
+    );
   return row ?? null;
 }
 
@@ -76,7 +85,9 @@ export async function findSuite(ctx: AppContext, orgId: string, nsSlug: string, 
     .select({ suite, namespace })
     .from(suite)
     .innerJoin(namespace, eq(namespace.id, suite.namespaceId))
-    .where(and(eq(suite.orgId, orgId), eq(namespace.slug, nsSlug), eq(suite.name, name), isNull(suite.archivedAt)));
+    .where(
+      and(eq(suite.orgId, orgId), eq(namespace.slug, nsSlug), eq(suite.name, name), isNull(suite.archivedAt)),
+    );
   return row ?? null;
 }
 
@@ -86,10 +97,19 @@ export function installCommands(
   wellKnown: boolean,
 ): InstallCommands {
   const path =
-    target.kind === 'skill' ? `s/${target.ns}/${target.name}` : target.kind === 'suite' ? `suites/${target.ns}/${target.name}` : `t/${target.ns}`;
+    target.kind === 'skill'
+      ? `s/${target.ns}/${target.name}`
+      : target.kind === 'suite'
+        ? `suites/${target.ns}/${target.name}`
+        : `t/${target.ns}`;
   const gitUrl = `${baseUrl}/git/${path}.git`;
   const wellKnownUrl = wellKnown ? `${baseUrl}/${path}` : null;
-  const dojoRef = target.kind === 'team' ? `--team ${target.ns}` : target.kind === 'suite' ? `@${target.ns}/${target.name} --suite` : `@${target.ns}/${target.name}`;
+  const dojoRef =
+    target.kind === 'team'
+      ? `--team ${target.ns}`
+      : target.kind === 'suite'
+        ? `@${target.ns}/${target.name} --suite`
+        : `@${target.ns}/${target.name}`;
   return {
     npxWellKnown: wellKnownUrl ? `npx skills add ${wellKnownUrl}` : null,
     npxGit: `npx skills add ${gitUrl}`,

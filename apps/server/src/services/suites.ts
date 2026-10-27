@@ -1,4 +1,4 @@
-import { INSTALLABLE_STATUSES, type RiskLevel, RISK_LEVELS, riskRank } from '@dojohub/contract';
+import { INSTALLABLE_STATUSES, RISK_LEVELS, type RiskLevel, riskRank } from '@dojohub/contract';
 import { isGreater, isValidVersion } from '@dojohub/core';
 import { type Provenance, skillVersion, suite, suiteMember, suiteVersion } from '@dojohub/db';
 import { and, desc, eq, inArray } from 'drizzle-orm';
@@ -45,9 +45,13 @@ export async function createSuiteVersion(ctx: AppContext, input: CreateSuiteInpu
     .from(suite)
     .where(and(eq(suite.orgId, input.orgId), eq(suite.namespaceId, input.ns.id), eq(suite.name, input.name)));
   if (s) {
-    const versions = await ctx.db.select({ v: suiteVersion.version }).from(suiteVersion).where(eq(suiteVersion.suiteId, s.id));
+    const versions = await ctx.db
+      .select({ v: suiteVersion.version })
+      .from(suiteVersion)
+      .where(eq(suiteVersion.suiteId, s.id));
     const latest = versions.map((x) => x.v).sort(semver.rcompare)[0];
-    if (latest && !isGreater(input.version, latest)) throw conflict(`Suite version must be greater than ${latest}`);
+    if (latest && !isGreater(input.version, latest))
+      throw conflict(`Suite version must be greater than ${latest}`);
   } else {
     [s] = await ctx.db
       .insert(suite)
@@ -92,7 +96,14 @@ export async function createSuiteVersion(ctx: AppContext, input: CreateSuiteInpu
     .update(suite)
     .set({ latestVersionId: sv!.id, description: input.description || s!.description, updatedAt: new Date() })
     .where(eq(suite.id, s!.id));
-  await audit(ctx, { orgId: input.orgId, actorId: input.actorId, action: 'suite.version_created', targetType: 'suite_version', targetId: sv!.id, metadata: { name: input.name, version: input.version } });
+  await audit(ctx, {
+    orgId: input.orgId,
+    actorId: input.actorId,
+    action: 'suite.version_created',
+    targetType: 'suite_version',
+    targetId: sv!.id,
+    metadata: { name: input.name, version: input.version },
+  });
   await recomputeSuite(ctx, s!.id);
   if (input.submit) await ctx.jobs.send('suite.evaluate', { suiteVersionId: sv!.id });
   return { suite: s!, version: sv! };
@@ -108,20 +119,36 @@ export async function evaluateSuiteVersion(ctx: AppContext, suiteVersionId: stri
   if (!sv || sv.status !== 'submitted') return;
   const [s] = await ctx.db.select().from(suite).where(eq(suite.id, sv.suiteId));
   const members = await ctx.db
-    .select({ status: skillVersion.status, risk: skillVersion.riskLevel, version: skillVersion.version, id: skillVersion.id })
+    .select({
+      status: skillVersion.status,
+      risk: skillVersion.riskLevel,
+      version: skillVersion.version,
+      id: skillVersion.id,
+    })
     .from(suiteMember)
     .innerJoin(skillVersion, eq(skillVersion.id, suiteMember.skillVersionId))
     .where(eq(suiteMember.suiteVersionId, sv.id));
   const bad = members.filter((m) => m.status === 'rejected' || m.status === 'blocked');
   if (bad.length) {
-    return closeSuiteVersion(ctx, sv.id, 'rejected', `${bad.length} member skill version(s) were rejected or blocked`);
+    return closeSuiteVersion(
+      ctx,
+      sv.id,
+      'rejected',
+      `${bad.length} member skill version(s) were rejected or blocked`,
+    );
   }
   if (!members.every((m) => INSTALLABLE_STATUSES.includes(m.status))) return; // wait for members
-  const risk = members.reduce<RiskLevel>((acc, m) => (m.risk && riskRank(m.risk) > riskRank(acc) ? m.risk : acc), RISK_LEVELS[0]);
+  const risk = members.reduce<RiskLevel>(
+    (acc, m) => (m.risk && riskRank(m.risk) > riskRank(acc) ? m.risk : acc),
+    RISK_LEVELS[0],
+  );
   await ctx.db.update(suiteVersion).set({ riskLevel: risk }).where(eq(suiteVersion.id, sv.id));
   const policyDoc = await loadPolicy(ctx, sv.orgId, s!.namespaceId);
   // Members were already reviewed individually; the suite review only covers composition.
-  const suitePolicy = { ...policyDoc, stages: policyDoc.stages.filter((st) => !st.when || /namespace|kind/.test(st.when)) };
+  const suitePolicy = {
+    ...policyDoc,
+    stages: policyDoc.stages.filter((st) => !st.when || /namespace|kind/.test(st.when)),
+  };
   const opened = await createApprovalRequest(ctx, {
     suiteVersionId: sv.id,
     namespaceId: s!.namespaceId,
@@ -148,7 +175,12 @@ export async function evaluateSuiteVersion(ctx: AppContext, suiteVersionId: stri
   }
 }
 
-export async function closeSuiteVersion(ctx: AppContext, suiteVersionId: string, to: 'approved' | 'rejected', reason: string | null) {
+export async function closeSuiteVersion(
+  ctx: AppContext,
+  suiteVersionId: string,
+  to: 'approved' | 'rejected',
+  reason: string | null,
+) {
   const [sv] = await ctx.db
     .update(suiteVersion)
     .set({ status: to, statusReason: reason, publishedAt: to === 'approved' ? new Date() : null })
@@ -167,7 +199,10 @@ export async function closeSuiteVersion(ctx: AppContext, suiteVersionId: string,
 }
 
 /** Worker job entry: re-evaluate suites that pin a newly decided skill version. */
-export async function processSuiteEvaluate(ctx: AppContext, data: { suiteVersionId?: string; skillVersionId?: string }) {
+export async function processSuiteEvaluate(
+  ctx: AppContext,
+  data: { suiteVersionId?: string; skillVersionId?: string },
+) {
   if (data.suiteVersionId) return evaluateSuiteVersion(ctx, data.suiteVersionId);
   if (!data.skillVersionId) return;
   const rows = await ctx.db
@@ -179,7 +214,11 @@ export async function processSuiteEvaluate(ctx: AppContext, data: { suiteVersion
 }
 
 export async function recomputeSuite(ctx: AppContext, suiteId: string) {
-  const versions = await ctx.db.select().from(suiteVersion).where(eq(suiteVersion.suiteId, suiteId)).orderBy(desc(suiteVersion.createdAt));
+  const versions = await ctx.db
+    .select()
+    .from(suiteVersion)
+    .where(eq(suiteVersion.suiteId, suiteId))
+    .orderBy(desc(suiteVersion.createdAt));
   if (!versions.length) return;
   const published = versions
     .filter((v) => INSTALLABLE_STATUSES.includes(v.status))
@@ -203,7 +242,12 @@ export async function installableSuiteVersion(ctx: AppContext, suiteId: string, 
     .where(and(eq(suiteVersion.suiteId, suiteId), inArray(suiteVersion.status, [...INSTALLABLE_STATUSES])));
   if (!rows.length) return null;
   if (selector && selector !== 'latest') {
-    const match = semver.valid(selector) ? selector : semver.maxSatisfying(rows.map((r) => r.version), selector);
+    const match = semver.valid(selector)
+      ? selector
+      : semver.maxSatisfying(
+          rows.map((r) => r.version),
+          selector,
+        );
     return rows.find((r) => r.version === match) ?? null;
   }
   return rows.sort((a, b) => semver.rcompare(a.version, b.version))[0]!;
@@ -211,7 +255,11 @@ export async function installableSuiteVersion(ctx: AppContext, suiteId: string, 
 
 export async function suiteMembers(ctx: AppContext, suiteVersionId: string) {
   return ctx.db
-    .select({ skillVersionId: suiteMember.skillVersionId, position: suiteMember.position, isEntry: suiteMember.isEntry })
+    .select({
+      skillVersionId: suiteMember.skillVersionId,
+      position: suiteMember.position,
+      isEntry: suiteMember.isEntry,
+    })
     .from(suiteMember)
     .where(eq(suiteMember.suiteVersionId, suiteVersionId))
     .orderBy(suiteMember.position);

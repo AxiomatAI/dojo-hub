@@ -1,4 +1,11 @@
-import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes, timingSafeEqual } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  hkdfSync,
+  randomBytes,
+  timingSafeEqual,
+} from 'node:crypto';
 
 /** AES-256-GCM envelope for secrets at rest (BYOK keys, source credentials, webhook secrets). */
 export class SecretBox {

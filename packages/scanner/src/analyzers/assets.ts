@@ -6,10 +6,13 @@ import { isProbablyText } from '../util';
 const SCRIPT_EXT = /\.(sh|bash|zsh|fish|py|js|mjs|cjs|ts|ps1|psm1|rb|pl|php|bat|cmd|lua)$/i;
 const BINARY_EXEC = /\.(exe|dll|so|dylib|bin|elf|app|msi|deb|rpm|jar|class|wasm|pyc)$/i;
 const ARCHIVE = /\.(zip|tar|gz|tgz|bz2|xz|7z|rar)$/i;
-const NETWORK = /\b(curl|wget|fetch\(|requests\.(get|post|put)|urllib|http\.(get|request)|axios|net\.connect|socket\.|Invoke-WebRequest|httpx)\b/;
-const FS_WRITE = /(\bwriteFile(Sync)?\b|open\([^)]*['"][wa]\+?['"]|\s>{1,2}\s*[~/$]|\brm\s+-|\bmv\s|\bcp\s|shutil\.(rmtree|move|copy)|fs\.(rm|unlink|rename))/;
+const NETWORK =
+  /\b(curl|wget|fetch\(|requests\.(get|post|put)|urllib|http\.(get|request)|axios|net\.connect|socket\.|Invoke-WebRequest|httpx)\b/;
+const FS_WRITE =
+  /(\bwriteFile(Sync)?\b|open\([^)]*['"][wa]\+?['"]|\s>{1,2}\s*[~/$]|\brm\s+-|\bmv\s|\bcp\s|shutil\.(rmtree|move|copy)|fs\.(rm|unlink|rename))/;
 const ENV_ACCESS = /(process\.env|os\.environ|getenv\(|\$\{?[A-Z_]{3,}\}?|\$env:)/;
-const OBFUSCATED = /([A-Za-z0-9+/]{400,}={0,2}|(\\x[0-9a-f]{2}){24,}|eval\s*\(\s*(atob|unescape|Buffer\.from))/i;
+const OBFUSCATED =
+  /([A-Za-z0-9+/]{400,}={0,2}|(\\x[0-9a-f]{2}){24,}|eval\s*\(\s*(atob|unescape|Buffer\.from))/i;
 
 export function classifyFile(path: string, bytes: Uint8Array): AssetFlag[] {
   const flags = new Set<AssetFlag>();
@@ -55,7 +58,13 @@ export function assetsAnalyzer(): Analyzer {
         for (const flag of flags) {
           const severity = FLAG_SEVERITY[flag];
           if (severity) {
-            findings.push({ analyzer: 'assets', rule: `asset.${flag}`, severity, message: `Risky asset: ${flag}`, file: path });
+            findings.push({
+              analyzer: 'assets',
+              rule: `asset.${flag}`,
+              severity,
+              message: `Risky asset: ${flag}`,
+              file: path,
+            });
           }
         }
       }

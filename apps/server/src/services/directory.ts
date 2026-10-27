@@ -21,7 +21,12 @@ async function graphToken(cfg: GraphConfig): Promise<string> {
   const res = await fetch(`https://login.microsoftonline.com/${cfg.tenantId}/oauth2/v2.0/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: cfg.clientId, client_secret: cfg.clientSecret, scope: 'https://graph.microsoft.com/.default', grant_type: 'client_credentials' }),
+    body: new URLSearchParams({
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      scope: 'https://graph.microsoft.com/.default',
+      grant_type: 'client_credentials',
+    }),
   });
   if (!res.ok) throw new Error(`Graph token request failed: HTTP ${res.status}`);
   return ((await res.json()) as { access_token: string }).access_token;
@@ -44,8 +49,17 @@ async function graphAll<T>(token: string, url: string): Promise<T[]> {
 async function syncGraph(ctx: AppContext, orgId: string, cfg: GraphConfig) {
   const token = await graphToken(cfg);
   const filter = cfg.groupFilter ? `&$filter=${encodeURIComponent(cfg.groupFilter)}` : '';
-  const groups = await graphAll<{ id: string; displayName: string }>(token, `https://graph.microsoft.com/v1.0/groups?$select=id,displayName&$top=999${filter}`);
-  await upsertGroups(ctx, orgId, groups.map((g) => ({ externalId: g.id, displayName: g.displayName })), 'directory_sync', 'microsoft_graph');
+  const groups = await graphAll<{ id: string; displayName: string }>(
+    token,
+    `https://graph.microsoft.com/v1.0/groups?$select=id,displayName&$top=999${filter}`,
+  );
+  await upsertGroups(
+    ctx,
+    orgId,
+    groups.map((g) => ({ externalId: g.id, displayName: g.displayName })),
+    'directory_sync',
+    'microsoft_graph',
+  );
   const byUser = new Map<string, { externalId: string; displayName: string }[]>();
   for (const g of groups) {
     const members = await graphAll<{ mail?: string; userPrincipalName?: string }>(
@@ -69,7 +83,8 @@ async function googleToken(cfg: GoogleConfig): Promise<string> {
   const unsigned = `${enc({ alg: 'RS256', typ: 'JWT' })}.${enc({
     iss: sa.client_email,
     sub: cfg.adminEmail,
-    scope: 'https://www.googleapis.com/auth/admin.directory.group.readonly https://www.googleapis.com/auth/admin.directory.group.member.readonly',
+    scope:
+      'https://www.googleapis.com/auth/admin.directory.group.readonly https://www.googleapis.com/auth/admin.directory.group.member.readonly',
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
     exp: now + 3600,
@@ -78,7 +93,10 @@ async function googleToken(cfg: GoogleConfig): Promise<string> {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${unsigned}.${signature}` }),
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: `${unsigned}.${signature}`,
+    }),
   });
   if (!res.ok) throw new Error(`Google token request failed: HTTP ${res.status}`);
   return ((await res.json()) as { access_token: string }).access_token;
@@ -95,13 +113,22 @@ async function syncGoogle(ctx: AppContext, orgId: string, cfg: GoogleConfig) {
   const groups: { id: string; email: string; name: string }[] = [];
   let pageToken = '';
   do {
-    const page = await get<{ groups?: { id: string; email: string; name: string }[]; nextPageToken?: string }>(
+    const page = await get<{
+      groups?: { id: string; email: string; name: string }[];
+      nextPageToken?: string;
+    }>(
       `https://admin.googleapis.com/admin/directory/v1/groups?domain=${encodeURIComponent(cfg.domain)}&maxResults=200${pageToken ? `&pageToken=${pageToken}` : ''}`,
     );
     groups.push(...(page.groups ?? []));
     pageToken = page.nextPageToken ?? '';
   } while (pageToken);
-  await upsertGroups(ctx, orgId, groups.map((g) => ({ externalId: g.email, displayName: g.name })), 'directory_sync', 'google_directory');
+  await upsertGroups(
+    ctx,
+    orgId,
+    groups.map((g) => ({ externalId: g.email, displayName: g.name })),
+    'directory_sync',
+    'google_directory',
+  );
   const byUser = new Map<string, { externalId: string; displayName: string }[]>();
   for (const g of groups) {
     let token2 = '';
@@ -120,7 +147,11 @@ async function syncGoogle(ctx: AppContext, orgId: string, cfg: GoogleConfig) {
   return applyMemberships(ctx, orgId, byUser);
 }
 
-async function applyMemberships(ctx: AppContext, orgId: string, byUser: Map<string, { externalId: string; displayName: string }[]>) {
+async function applyMemberships(
+  ctx: AppContext,
+  orgId: string,
+  byUser: Map<string, { externalId: string; displayName: string }[]>,
+) {
   const members = await ctx.db
     .select({ id: user.id, email: user.email })
     .from(orgMember)
@@ -139,13 +170,19 @@ export async function runDirectorySync(ctx: AppContext, id: string) {
   if (!row || !row.enabled) return;
   const cfg = JSON.parse(ctx.secrets.decrypt(row.configEnc)) as GraphConfig | GoogleConfig;
   try {
-    const res = cfg.kind === 'microsoft_graph' ? await syncGraph(ctx, row.orgId, cfg) : await syncGoogle(ctx, row.orgId, cfg);
+    const res =
+      cfg.kind === 'microsoft_graph'
+        ? await syncGraph(ctx, row.orgId, cfg)
+        : await syncGoogle(ctx, row.orgId, cfg);
     await ctx.db
       .update(directorySync)
       .set({ lastRunAt: new Date(), lastStatus: `ok: ${res.groups} groups, ${res.users} users` })
       .where(and(eq(directorySync.id, id)));
   } catch (err) {
-    await ctx.db.update(directorySync).set({ lastRunAt: new Date(), lastStatus: `error: ${(err as Error).message}` }).where(eq(directorySync.id, id));
+    await ctx.db
+      .update(directorySync)
+      .set({ lastRunAt: new Date(), lastStatus: `error: ${(err as Error).message}` })
+      .where(eq(directorySync.id, id));
     throw err;
   }
 }

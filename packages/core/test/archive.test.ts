@@ -29,7 +29,10 @@ describe('archives', () => {
   });
 
   it('round-trips zip and strips a single root folder', () => {
-    const zipped = zipSync({ 'my-skill/SKILL.md': files.get('SKILL.md')!, 'my-skill/a.txt': utf8.encode('a') });
+    const zipped = zipSync({
+      'my-skill/SKILL.md': files.get('SKILL.md')!,
+      'my-skill/a.txt': utf8.encode('a'),
+    });
     expect([...stripSingleRoot(readArchive(zipped)).keys()].sort()).toEqual(['SKILL.md', 'a.txt']);
     expect(readArchive(createZip(files)).size).toBe(3);
   });

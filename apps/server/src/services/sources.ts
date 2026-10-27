@@ -12,14 +12,23 @@ import {
   toSkillName,
   utf8,
 } from '@dojohub/core';
-import { namespace, setting, skill, source, sourceItem, sourceSnapshot, suite, suiteVersion } from '@dojohub/db';
+import {
+  namespace,
+  setting,
+  skill,
+  source,
+  sourceItem,
+  sourceSnapshot,
+  suite,
+  suiteVersion,
+} from '@dojohub/db';
 import { and, eq, inArray } from 'drizzle-orm';
 import semver from 'semver';
 import type { AppContext } from '../context';
 import { AppError, badRequest, notFound } from '../lib/errors';
 import { audit } from './audit';
 import { emit } from './events';
-import { fetchGit, fetchWellKnown, type FetchResult, resolveGitSource, uploadSnapshot } from './fetchers';
+import { type FetchResult, fetchGit, fetchWellKnown, resolveGitSource, uploadSnapshot } from './fetchers';
 import type { NamespaceRow } from './namespaces';
 import { ingestVersion } from './skills';
 import { createSuiteVersion } from './suites';
@@ -32,7 +41,8 @@ export const PRESET_SOURCES: PresetSource[] = [
     kind: 'github',
     name: 'Anthropic Agent Skills',
     url: 'https://github.com/anthropics/skills',
-    description: 'Official document, design and developer skills from Anthropic (PDF, DOCX, XLSX, PPTX, MCP builder…).',
+    description:
+      'Official document, design and developer skills from Anthropic (PDF, DOCX, XLSX, PPTX, MCP builder…).',
     kindLabel: 'suite',
   },
   {
@@ -64,7 +74,7 @@ export const PRESET_SOURCES: PresetSource[] = [
     kind: 'github',
     name: 'pstack (Cursor plugins)',
     url: 'https://github.com/cursor/plugins/tree/main/pstack',
-    description: 'Lauren Tan\'s pstack: architecture, review and planning skills for agentic engineering.',
+    description: "Lauren Tan's pstack: architecture, review and planning skills for agentic engineering.",
     kindLabel: 'suite',
   },
 ];
@@ -72,10 +82,16 @@ export const PRESET_SOURCES: PresetSource[] = [
 const snapshotCache = new Map<string, { at: number; result: FetchResult }>();
 const CACHE_MS = 10 * 60_000;
 
-export async function fetchSourceSnapshot(ctx: AppContext, src: SourceRow, opts: { useCache?: boolean } = {}): Promise<FetchResult> {
+export async function fetchSourceSnapshot(
+  ctx: AppContext,
+  src: SourceRow,
+  opts: { useCache?: boolean } = {},
+): Promise<FetchResult> {
   const cached = snapshotCache.get(src.id);
   if (opts.useCache && cached && Date.now() - cached.at < CACHE_MS) return cached.result;
-  const credential = ctx.secrets.decryptOrNull(src.credentialEnc) ?? (src.kind === 'github' ? (ctx.config.GITHUB_TOKEN ?? null) : null);
+  const credential =
+    ctx.secrets.decryptOrNull(src.credentialEnc) ??
+    (src.kind === 'github' ? (ctx.config.GITHUB_TOKEN ?? null) : null);
   let result: FetchResult;
   switch (src.kind) {
     case 'github':
@@ -92,7 +108,13 @@ export async function fetchSourceSnapshot(ctx: AppContext, src: SourceRow, opts:
       if (!sha) throw badRequest('Upload a repository archive for this source first');
       const bytes = await ctx.blobs.get(sha);
       if (!bytes) throw new AppError(500, 'blob_missing', 'Uploaded archive is missing');
-      result = { files: uploadSnapshot(bytes), commit: sha.slice(0, 12), url: src.url, ref: null, warnings: [] };
+      result = {
+        files: uploadSnapshot(bytes),
+        commit: sha.slice(0, 12),
+        url: src.url,
+        ref: null,
+        warnings: [],
+      };
       break;
     }
   }
@@ -139,7 +161,13 @@ export async function syncSource(ctx: AppContext, sourceId: string, actorId: str
       commit: fetched.commit,
       warnings: [...fetched.warnings, ...found.warnings],
       discovered: {
-        skills: found.skills.map((s) => ({ name: s.name, path: s.path, description: s.description, issues: s.issues, files: s.files.size })),
+        skills: found.skills.map((s) => ({
+          name: s.name,
+          path: s.path,
+          description: s.description,
+          issues: s.issues,
+          files: s.files.size,
+        })),
         suites: found.suites.map((s) => ({ name: s.name, version: s.version, skills: s.skillPaths.length })),
       },
     });
@@ -172,7 +200,8 @@ export async function syncSource(ctx: AppContext, sourceId: string, actorId: str
         });
         continue;
       }
-      let status: SourceItemStatus = prev.status === 'removed' ? (prev.skillId ? 'imported' : 'new') : prev.status;
+      let status: SourceItemStatus =
+        prev.status === 'removed' ? (prev.skillId ? 'imported' : 'new') : prev.status;
       if (prev.skillId && prev.lastContentHash && prev.lastContentHash !== hash) {
         status = 'update_available';
         if (src.autoTrack) {
@@ -190,12 +219,19 @@ export async function syncSource(ctx: AppContext, sourceId: string, actorId: str
         .update(sourceItem)
         .set({ status, upstreamContentHash: hash, description: s.description, meta })
         .where(eq(sourceItem.id, prev.id));
-      if (prev.skillId) await ctx.db.update(skill).set({ upstreamRemoved: false }).where(eq(skill.id, prev.skillId));
+      if (prev.skillId)
+        await ctx.db.update(skill).set({ upstreamRemoved: false }).where(eq(skill.id, prev.skillId));
     }
     for (const suiteD of found.suites) {
       const key = itemKey('suite', suiteD.root, suiteD.name);
       seen.add(key);
-      const meta = { version: suiteD.version, skills: suiteD.skillPaths, author: suiteD.author, license: suiteD.license, origin: suiteD.origin };
+      const meta = {
+        version: suiteD.version,
+        skills: suiteD.skillPaths,
+        author: suiteD.author,
+        license: suiteD.license,
+        origin: suiteD.origin,
+      };
       const prev = byKey.get(key);
       if (!prev) {
         await ctx.db.insert(sourceItem).values({
@@ -211,14 +247,19 @@ export async function syncSource(ctx: AppContext, sourceId: string, actorId: str
         const changed = prev.suiteId && prev.meta.version !== suiteD.version;
         await ctx.db
           .update(sourceItem)
-          .set({ meta, description: suiteD.description ?? null, status: changed ? 'update_available' : prev.status === 'removed' ? 'new' : prev.status })
+          .set({
+            meta,
+            description: suiteD.description ?? null,
+            status: changed ? 'update_available' : prev.status === 'removed' ? 'new' : prev.status,
+          })
           .where(eq(sourceItem.id, prev.id));
       }
     }
     for (const item of existing) {
       if (seen.has(itemKey(item.kind, item.upstreamPath, item.upstreamName))) continue;
       await ctx.db.update(sourceItem).set({ status: 'removed' }).where(eq(sourceItem.id, item.id));
-      if (item.skillId) await ctx.db.update(skill).set({ upstreamRemoved: true }).where(eq(skill.id, item.skillId));
+      if (item.skillId)
+        await ctx.db.update(skill).set({ upstreamRemoved: true }).where(eq(skill.id, item.skillId));
     }
     await ctx.db
       .update(source)
@@ -228,11 +269,28 @@ export async function syncSource(ctx: AppContext, sourceId: string, actorId: str
       .select({ id: sourceItem.id })
       .from(sourceItem)
       .where(and(eq(sourceItem.sourceId, src.id), eq(sourceItem.status, 'update_available')));
-    await emit(ctx, src.orgId, 'source.synced', { source: src.name, sourceId: src.id, commit: fetched.commit, autoUpdated: updates }, { namespaceId: src.namespaceId });
+    await emit(
+      ctx,
+      src.orgId,
+      'source.synced',
+      { source: src.name, sourceId: src.id, commit: fetched.commit, autoUpdated: updates },
+      { namespaceId: src.namespaceId },
+    );
     if (pending.length) {
-      await emit(ctx, src.orgId, 'source.update_available', { source: src.name, sourceId: src.id, items: pending.length }, { namespaceId: src.namespaceId });
+      await emit(
+        ctx,
+        src.orgId,
+        'source.update_available',
+        { source: src.name, sourceId: src.id, items: pending.length },
+        { namespaceId: src.namespaceId },
+      );
     }
-    return { commit: fetched.commit, skills: found.skills.length, suites: found.suites.length, warnings: [...fetched.warnings, ...found.warnings] };
+    return {
+      commit: fetched.commit,
+      skills: found.skills.length,
+      suites: found.suites.length,
+      warnings: [...fetched.warnings, ...found.warnings],
+    };
   } catch (err) {
     await ctx.db
       .update(source)
@@ -300,11 +358,14 @@ async function importSkill(
     kind: skillId ? 'update' : 'import',
     skillId: skillId ?? undefined,
     renameTo,
-    version: typeof upstreamVersion === 'string' && isValidVersion(upstreamVersion) ? upstreamVersion : undefined,
+    version:
+      typeof upstreamVersion === 'string' && isValidVersion(upstreamVersion) ? upstreamVersion : undefined,
     sourceId: src.id,
     upstreamPath: s.path,
     externalRefs: s.externalRefs.filter((r) => !vendored.includes(r)),
-    transformations: vendored.length ? [{ kind: 'vendor_external', detail: `Vendored ${vendored.length} file(s): ${vendored.join(', ')}` }] : [],
+    transformations: vendored.length
+      ? [{ kind: 'vendor_external', detail: `Vendored ${vendored.length} file(s): ${vendored.join(', ')}` }]
+      : [],
     provenance: {
       sourceId: src.id,
       sourceKind: src.kind,
@@ -315,12 +376,19 @@ async function importSkill(
       license: typeof s.frontmatter.license === 'string' ? s.frontmatter.license : undefined,
       fetchedAt: new Date().toISOString(),
     },
-    changelog: fetched.commit ? `Synced from ${fetched.url} @ ${fetched.commit.slice(0, 12)}` : `Imported from ${fetched.url}`,
+    changelog: fetched.commit
+      ? `Synced from ${fetched.url} @ ${fetched.commit.slice(0, 12)}`
+      : `Imported from ${fetched.url}`,
   });
 }
 
 /** Import selected discovered items (skills and/or whole suites) as local copies. */
-export async function importItems(ctx: AppContext, sourceId: string, itemIds: string[], actorId: string | null) {
+export async function importItems(
+  ctx: AppContext,
+  sourceId: string,
+  itemIds: string[],
+  actorId: string | null,
+) {
   const [src] = await ctx.db.select().from(source).where(eq(source.id, sourceId));
   if (!src) throw notFound('Source');
   const items = await ctx.db
@@ -335,12 +403,16 @@ export async function importItems(ctx: AppContext, sourceId: string, itemIds: st
 
   const doSkill = async (path: string, name: string) => {
     if (importedByPath.has(path)) return importedByPath.get(path)!;
-    const d = found.skills.find((s) => s.path === path && s.name === name) ?? found.skills.find((s) => s.path === path);
+    const d =
+      found.skills.find((s) => s.path === path && s.name === name) ??
+      found.skills.find((s) => s.path === path);
     if (!d) throw badRequest(`Skill ${name} no longer exists upstream`);
     const [item] = await ctx.db
       .select()
       .from(sourceItem)
-      .where(and(eq(sourceItem.sourceId, src.id), eq(sourceItem.kind, 'skill'), eq(sourceItem.upstreamPath, path)));
+      .where(
+        and(eq(sourceItem.sourceId, src.id), eq(sourceItem.kind, 'skill'), eq(sourceItem.upstreamPath, path)),
+      );
     const res = await importSkill(ctx, src, d, fetched, item?.skillId ?? null, actorId);
     const hash = await contentHash(d.files);
     if (item) {
@@ -349,7 +421,10 @@ export async function importItems(ctx: AppContext, sourceId: string, itemIds: st
         .set({ skillId: res.skill.id, status: 'imported', lastContentHash: hash, upstreamContentHash: hash })
         .where(eq(sourceItem.id, item.id));
     }
-    await ctx.db.update(skill).set({ sourceId: src.id, upstreamPath: path }).where(eq(skill.id, res.skill.id));
+    await ctx.db
+      .update(skill)
+      .set({ sourceId: src.id, upstreamPath: path })
+      .where(eq(skill.id, res.skill.id));
     importedByPath.set(path, res.version.id);
     return res.version.id;
   };
@@ -370,6 +445,7 @@ export async function importItems(ctx: AppContext, sourceId: string, itemIds: st
     }
     try {
       const members: { skillVersionId: string; isEntry: boolean }[] = [];
+      const skipped: string[] = [];
       for (const p of d.skillPaths) {
         const ds = found.skills.find((s) => s.path === p);
         if (!ds) continue;
@@ -380,18 +456,37 @@ export async function importItems(ctx: AppContext, sourceId: string, itemIds: st
           const [existingItem] = await ctx.db
             .select()
             .from(sourceItem)
-            .where(and(eq(sourceItem.sourceId, src.id), eq(sourceItem.upstreamPath, p), eq(sourceItem.kind, 'skill')));
-          const [sk] = existingItem?.skillId ? await ctx.db.select().from(skill).where(eq(skill.id, existingItem.skillId)) : [];
-          if (sk?.latestVersionId) members.push({ skillVersionId: sk.latestVersionId, isEntry: false });
-          else throw err;
+            .where(
+              and(
+                eq(sourceItem.sourceId, src.id),
+                eq(sourceItem.upstreamPath, p),
+                eq(sourceItem.kind, 'skill'),
+              ),
+            );
+          const [sk] = existingItem?.skillId
+            ? await ctx.db.select().from(skill).where(eq(skill.id, existingItem.skillId))
+            : [];
+          if (sk?.latestVersionId)
+            members.push({ skillVersionId: sk.latestVersionId, isEntry: /(^|[-/])setup/.test(ds.name) });
+          else {
+            // Skip invalid members instead of failing the whole suite; report them in the results.
+            skipped.push(ds.name);
+            results.push({ item: ds.name, ok: false, message: (err as Error).message });
+          }
         }
       }
+      if (!members.length) throw badRequest('None of the suite skills could be imported');
       const suiteName = toSkillName(d.name);
       const version = await nextSuiteVersion(ctx, src.orgId, src.namespaceId, suiteName, d.version);
       const assets = [];
       for (const p of d.assetPaths.slice(0, 200)) {
         const bytes = fetched.files.get(p);
-        if (bytes) assets.push({ path: p.slice(d.root ? d.root.length + 1 : 0), sha256: await ctx.blobs.put(bytes), size: bytes.byteLength });
+        if (bytes)
+          assets.push({
+            path: p.slice(d.root ? d.root.length + 1 : 0),
+            sha256: await ctx.blobs.put(bytes),
+            size: bytes.byteLength,
+          });
       }
       const [ns] = await ctx.db.select().from(namespace).where(eq(namespace.id, src.namespaceId));
       const res = await createSuiteVersion(ctx, {
@@ -410,25 +505,54 @@ export async function importItems(ctx: AppContext, sourceId: string, itemIds: st
         license: d.license ?? null,
         homepage: d.homepage ?? null,
         tags: d.keywords,
-        provenance: { sourceId: src.id, sourceKind: src.kind, url: fetched.url, commit: fetched.commit ?? undefined, path: d.root, fetchedAt: new Date().toISOString() },
+        provenance: {
+          sourceId: src.id,
+          sourceKind: src.kind,
+          url: fetched.url,
+          commit: fetched.commit ?? undefined,
+          path: d.root,
+          fetchedAt: new Date().toISOString(),
+        },
       });
-      await ctx.db.update(sourceItem).set({ suiteId: res.suite.id, status: 'imported' }).where(eq(sourceItem.id, item.id));
-      results.push({ item: item.upstreamName, ok: true, message: `suite with ${members.length} skills` });
+      await ctx.db
+        .update(sourceItem)
+        .set({ suiteId: res.suite.id, status: 'imported' })
+        .where(eq(sourceItem.id, item.id));
+      results.push({
+        item: item.upstreamName,
+        ok: true,
+        message: `suite with ${members.length} skills${skipped.length ? ` (${skipped.length} skipped)` : ''}`,
+      });
     } catch (err) {
       results.push({ item: item.upstreamName, ok: false, message: (err as Error).message });
     }
   }
-  await audit(ctx, { orgId: src.orgId, actorId, action: 'source.import', targetType: 'source', targetId: src.id, metadata: { results } });
+  await audit(ctx, {
+    orgId: src.orgId,
+    actorId,
+    action: 'source.import',
+    targetType: 'source',
+    targetId: src.id,
+    metadata: { results },
+  });
   return results;
 }
 
-async function nextSuiteVersion(ctx: AppContext, orgId: string, namespaceId: string, name: string, upstream?: string) {
+async function nextSuiteVersion(
+  ctx: AppContext,
+  orgId: string,
+  namespaceId: string,
+  name: string,
+  upstream?: string,
+) {
   const [s] = await ctx.db
     .select()
     .from(suite)
     .where(and(eq(suite.orgId, orgId), eq(suite.namespaceId, namespaceId), eq(suite.name, name)));
   if (!s) return upstream && isValidVersion(upstream) ? upstream : '1.0.0';
-  const versions = (await ctx.db.select({ v: suiteVersion.version }).from(suiteVersion).where(eq(suiteVersion.suiteId, s.id))).map((r) => r.v);
+  const versions = (
+    await ctx.db.select({ v: suiteVersion.version }).from(suiteVersion).where(eq(suiteVersion.suiteId, s.id))
+  ).map((r) => r.v);
   const latest = versions.sort(semver.rcompare)[0];
   if (upstream && isValidVersion(upstream) && (!latest || semver.gt(upstream, latest))) return upstream;
   return nextVersion(latest ?? null, 'patch');

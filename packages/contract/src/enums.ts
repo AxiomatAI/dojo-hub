@@ -94,7 +94,14 @@ export const WEBHOOK_EVENTS = [
 export const webhookEvent = z.enum(WEBHOOK_EVENTS);
 export type WebhookEvent = z.infer<typeof webhookEvent>;
 
-export const LLM_PROVIDERS = ['anthropic', 'openai', 'azure', 'bedrock', 'google', 'openai-compatible'] as const;
+export const LLM_PROVIDERS = [
+  'anthropic',
+  'openai',
+  'azure',
+  'bedrock',
+  'google',
+  'openai-compatible',
+] as const;
 export const llmProvider = z.enum(LLM_PROVIDERS);
 export type LlmProvider = z.infer<typeof llmProvider>;
 

@@ -31,7 +31,9 @@ export async function recordInstall(ctx: AppContext, input: InstallInput) {
       actorId: input.actorId ?? null,
       isUpdate: !!input.isUpdate,
       userAgent: input.userAgent?.slice(0, 200) ?? null,
-      clientHash: input.clientIp ? sha256(`${input.clientIp}:${new Date().toISOString().slice(0, 10)}`).slice(0, 16) : null,
+      clientHash: input.clientIp
+        ? sha256(`${input.clientIp}:${new Date().toISOString().slice(0, 10)}`).slice(0, 16)
+        : null,
     });
     const day = new Date().toISOString().slice(0, 10);
     const subjects: ['skill' | 'suite', string][] = [];
@@ -50,12 +52,23 @@ export async function recordInstall(ctx: AppContext, input: InstallInput) {
           updates: input.isUpdate ? 1 : 0,
         })
         .onConflictDoUpdate({
-          target: [dailyStat.orgId, dailyStat.day, dailyStat.subjectType, dailyStat.subjectId, dailyStat.channel],
-          set: input.isUpdate ? { updates: sql`${dailyStat.updates} + 1` } : { installs: sql`${dailyStat.installs} + 1` },
+          target: [
+            dailyStat.orgId,
+            dailyStat.day,
+            dailyStat.subjectType,
+            dailyStat.subjectId,
+            dailyStat.channel,
+          ],
+          set: input.isUpdate
+            ? { updates: sql`${dailyStat.updates} + 1` }
+            : { installs: sql`${dailyStat.installs} + 1` },
         });
     }
     if (input.skillId && !input.isUpdate) {
-      await ctx.db.update(skill).set({ installCount: sql`${skill.installCount} + 1` }).where(eq(skill.id, input.skillId));
+      await ctx.db
+        .update(skill)
+        .set({ installCount: sql`${skill.installCount} + 1` })
+        .where(eq(skill.id, input.skillId));
     }
     if (input.skillVersionId && !input.isUpdate) {
       await ctx.db
@@ -64,7 +77,10 @@ export async function recordInstall(ctx: AppContext, input: InstallInput) {
         .where(eq(skillVersion.id, input.skillVersionId));
     }
     if (input.suiteId && !input.isUpdate) {
-      await ctx.db.update(suite).set({ installCount: sql`${suite.installCount} + 1` }).where(eq(suite.id, input.suiteId));
+      await ctx.db
+        .update(suite)
+        .set({ installCount: sql`${suite.installCount} + 1` })
+        .where(eq(suite.id, input.suiteId));
     }
     await emit(ctx, input.orgId, 'install.recorded', {
       channel: input.channel,

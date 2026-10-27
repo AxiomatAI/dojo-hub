@@ -22,7 +22,13 @@ export interface DecisionModelOptions {
 }
 
 async function hmac(secret: string, body: string): Promise<string> {
-  const key = await crypto.subtle.importKey('raw', utf8.encode(secret) as Uint8Array<ArrayBuffer>, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    utf8.encode(secret) as Uint8Array<ArrayBuffer>,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
   const sig = await crypto.subtle.sign('HMAC', key, utf8.encode(body) as Uint8Array<ArrayBuffer>);
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -48,7 +54,10 @@ export function decisionModelAnalyzer(opts: DecisionModelOptions): Analyzer {
         files,
         findings: opts.priorFindings?.() ?? [],
       });
-      const headers: Record<string, string> = { 'content-type': 'application/json', 'user-agent': 'DojoHub-DecisionModel/1' };
+      const headers: Record<string, string> = {
+        'content-type': 'application/json',
+        'user-agent': 'DojoHub-DecisionModel/1',
+      };
       if (opts.secret) headers['x-dojo-signature'] = `sha256=${await hmac(opts.secret, body)}`;
       try {
         const res = await (opts.fetchImpl ?? fetch)(opts.url, {
@@ -75,12 +84,15 @@ export function decisionModelAnalyzer(opts: DecisionModelOptions): Analyzer {
         };
       } catch (err) {
         const message = `Decision model unavailable: ${(err as Error).message}`;
-        if (opts.onError === 'ignore') return { analyzer: 'decision_model', status: 'error', findings: [], error: message };
+        if (opts.onError === 'ignore')
+          return { analyzer: 'decision_model', status: 'error', findings: [], error: message };
         return {
           analyzer: 'decision_model',
           status: 'error',
           verdict: 'warn',
-          findings: [{ analyzer: 'decision_model', rule: 'decision.unavailable', severity: 'medium', message }],
+          findings: [
+            { analyzer: 'decision_model', rule: 'decision.unavailable', severity: 'medium', message },
+          ],
           error: message,
           report: { decision: 'review' },
         };

@@ -44,7 +44,8 @@ export async function createLanguageModel(cfg: LlmModelConfig): Promise<Language
     }
     case 'openai-compatible': {
       const { createOpenAICompatible } = await import('@ai-sdk/openai-compatible');
-      if (!baseURL) throw new Error('baseUrl is required for OpenAI-compatible providers (e.g. Ollama, vLLM)');
+      if (!baseURL)
+        throw new Error('baseUrl is required for OpenAI-compatible providers (e.g. Ollama, vLLM)');
       return createOpenAICompatible({ name: 'custom', apiKey, baseURL })(cfg.model);
     }
   }
@@ -60,7 +61,11 @@ export async function createEmbeddingModel(cfg: LlmModelConfig): Promise<Embeddi
     }
     case 'azure': {
       const { createAzure } = await import('@ai-sdk/azure');
-      return createAzure({ apiKey, baseURL, resourceName: cfg.options?.resourceName as string | undefined }).embeddingModel(cfg.model);
+      return createAzure({
+        apiKey,
+        baseURL,
+        resourceName: cfg.options?.resourceName as string | undefined,
+      }).embeddingModel(cfg.model);
     }
     case 'google': {
       const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
@@ -68,7 +73,9 @@ export async function createEmbeddingModel(cfg: LlmModelConfig): Promise<Embeddi
     }
     case 'bedrock': {
       const { createAmazonBedrock } = await import('@ai-sdk/amazon-bedrock');
-      return createAmazonBedrock({ region: (cfg.options?.region as string | undefined) ?? process.env.AWS_REGION }).embeddingModel(cfg.model);
+      return createAmazonBedrock({
+        region: (cfg.options?.region as string | undefined) ?? process.env.AWS_REGION,
+      }).embeddingModel(cfg.model);
     }
     case 'openai-compatible': {
       const { createOpenAICompatible } = await import('@ai-sdk/openai-compatible');
@@ -76,6 +83,8 @@ export async function createEmbeddingModel(cfg: LlmModelConfig): Promise<Embeddi
       return createOpenAICompatible({ name: 'custom', apiKey, baseURL }).embeddingModel(cfg.model);
     }
     case 'anthropic':
-      throw new Error('Anthropic does not provide embedding models; configure OpenAI, Azure, Google, Bedrock or an OpenAI-compatible endpoint');
+      throw new Error(
+        'Anthropic does not provide embedding models; configure OpenAI, Azure, Google, Bedrock or an OpenAI-compatible endpoint',
+      );
   }
 }

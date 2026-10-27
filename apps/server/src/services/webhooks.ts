@@ -20,15 +20,34 @@ const TITLES: Record<string, string> = {
 
 function summarize(e: EventEnvelope): string {
   const d = e.data as Record<string, unknown>;
-  const subject = d.skill ? `${d.skill}@${d.version ?? ''}` : d.suite ? `suite ${d.suite}@${d.version ?? ''}` : (d.subject ?? d.source ?? '');
-  const extra = d.reason ? ` — ${d.reason}` : d.riskLevel ? ` — risk ${d.riskLevel}` : d.decision ? ` — ${d.decision}` : '';
+  const subject = d.skill
+    ? `${d.skill}@${d.version ?? ''}`
+    : d.suite
+      ? `suite ${d.suite}@${d.version ?? ''}`
+      : (d.subject ?? d.source ?? '');
+  const extra = d.reason
+    ? ` — ${d.reason}`
+    : d.riskLevel
+      ? ` — risk ${d.riskLevel}`
+      : d.decision
+        ? ` — ${d.decision}`
+        : '';
   return `${TITLES[e.type] ?? e.type}: ${subject}${extra}`;
 }
 
 /** Render the payload for the webhook's format (raw JSON, Slack incoming webhook, Teams). */
-export function renderPayload(format: 'json' | 'slack' | 'teams', e: EventEnvelope, baseUrl: string): unknown {
+export function renderPayload(
+  format: 'json' | 'slack' | 'teams',
+  e: EventEnvelope,
+  baseUrl: string,
+): unknown {
   if (format === 'slack') {
-    return { text: summarize(e), blocks: [{ type: 'section', text: { type: 'mrkdwn', text: `*${summarize(e)}*\n<${baseUrl}|Open DojoHub>` } }] };
+    return {
+      text: summarize(e),
+      blocks: [
+        { type: 'section', text: { type: 'mrkdwn', text: `*${summarize(e)}*\n<${baseUrl}|Open DojoHub>` } },
+      ],
+    };
   }
   if (format === 'teams') {
     return {

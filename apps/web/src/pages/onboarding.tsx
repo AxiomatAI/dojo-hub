@@ -25,7 +25,10 @@ function TeamStep({ onDone }: { onDone: () => void }) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  const create = useAction(() => api.post('namespaces', { displayName: name, slug, description, visibility: 'internal' }), { invalidate: [['namespaces'], ['me'], ['setup-status']], onSuccess: onDone });
+  const create = useAction(
+    () => api.post('namespaces', { displayName: name, slug, description, visibility: 'internal' }),
+    { invalidate: [['namespaces'], ['me'], ['setup-status']], onSuccess: onDone },
+  );
   return (
     <div className="space-y-3">
       <Field label={t('common.name')} hint={slug ? `@${slug}` : undefined}>
@@ -35,7 +38,12 @@ function TeamStep({ onDone }: { onDone: () => void }) {
         <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
       </Field>
       <div className="flex justify-end">
-        <Button variant="primary" disabled={slug.length < 2} loading={create.isPending} onClick={() => create.mutate(undefined)}>
+        <Button
+          variant="primary"
+          disabled={slug.length < 2}
+          loading={create.isPending}
+          onClick={() => create.mutate(undefined)}
+        >
           {t('common.create')}
         </Button>
       </div>
@@ -45,11 +53,32 @@ function TeamStep({ onDone }: { onDone: () => void }) {
 
 function SkillsStep() {
   const { t } = useTranslation();
-  const presets = useQuery({ queryKey: ['presets'], queryFn: () => api.get<PresetSource[]>('sources/presets') });
+  const presets = useQuery({
+    queryKey: ['presets'],
+    queryFn: () => api.get<PresetSource[]>('sources/presets'),
+  });
   const cards = [
-    { to: '/submit', search: { mode: 'upload' }, icon: <FileUp className="h-5 w-5" />, title: t('onboarding.upload'), body: t('onboarding.uploadBody') },
-    { to: '/submit', search: { mode: 'create' }, icon: <PenLine className="h-5 w-5" />, title: t('submit.create'), body: t('onboarding.createBody') },
-    { to: '/sources/new', search: {}, icon: <GitBranch className="h-5 w-5" />, title: t('submit.import'), body: t('onboarding.importBody') },
+    {
+      to: '/submit',
+      search: { mode: 'upload' },
+      icon: <FileUp className="h-5 w-5" />,
+      title: t('onboarding.upload'),
+      body: t('onboarding.uploadBody'),
+    },
+    {
+      to: '/submit',
+      search: { mode: 'create' },
+      icon: <PenLine className="h-5 w-5" />,
+      title: t('submit.create'),
+      body: t('onboarding.createBody'),
+    },
+    {
+      to: '/sources/new',
+      search: {},
+      icon: <GitBranch className="h-5 w-5" />,
+      title: t('submit.import'),
+      body: t('onboarding.importBody'),
+    },
   ];
   return (
     <div className="space-y-5">
@@ -57,7 +86,9 @@ function SkillsStep() {
         {cards.map((c) => (
           <Link key={c.title} to={c.to} search={c.search as never}>
             <Card className="h-full p-4 transition-colors hover:border-accent">
-              <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-accent-soft text-accent">{c.icon}</div>
+              <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                {c.icon}
+              </div>
               <div className="font-medium">{c.title}</div>
               <p className="mt-0.5 text-[12.5px] text-muted">{c.body}</p>
             </Card>
@@ -68,8 +99,17 @@ function SkillsStep() {
         <div className="mb-2 text-[12px] font-medium text-subtle uppercase">{t('onboarding.popular')}</div>
         <div className="grid gap-2 sm:grid-cols-2">
           {presets.data?.map((p) => (
-            <Link key={p.id} to="/sources/new" search={{ preset: p.id, url: undefined }} className="flex items-start gap-3 rounded-lg border border-border bg-panel p-3 hover:border-border-strong">
-              {p.kindLabel === 'suite' ? <Boxes className="mt-0.5 h-4 w-4 text-accent" /> : <Sparkles className="mt-0.5 h-4 w-4 text-accent" />}
+            <Link
+              key={p.id}
+              to="/sources/new"
+              search={{ preset: p.id, url: undefined }}
+              className="flex items-start gap-3 rounded-lg border border-border bg-panel p-3 hover:border-border-strong"
+            >
+              {p.kindLabel === 'suite' ? (
+                <Boxes className="mt-0.5 h-4 w-4 text-accent" />
+              ) : (
+                <Sparkles className="mt-0.5 h-4 w-4 text-accent" />
+              )}
               <div className="min-w-0">
                 <div className="text-[13px] font-medium">{p.name}</div>
                 <div className="line-clamp-2 text-[12px] text-muted">{p.description}</div>
@@ -87,7 +127,10 @@ export function OnboardingPage() {
   const me = useMe();
   const navigate = useNavigate();
   const search = useSearch({ from: '/app/onboarding' }) as { step?: string };
-  const status = useQuery({ queryKey: ['setup-status'], queryFn: () => api.get<SetupStatus>('setup/status') });
+  const status = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: () => api.get<SetupStatus>('setup/status'),
+  });
   if (!isAdmin(me)) return <ConnectPage />;
   const step = (search.step as Step) ?? 'sso';
   const go = (s: Step) => navigate({ to: '/onboarding', search: { step: s }, replace: true });
@@ -102,7 +145,12 @@ export function OnboardingPage() {
     team: !!status.data?.onboarding.hasTeam,
     skills: !!status.data?.onboarding.hasSkills,
   };
-  const icons: Record<Step, React.ReactNode> = { sso: <ShieldCheck className="h-4 w-4" />, llm: <Bot className="h-4 w-4" />, team: <Users className="h-4 w-4" />, skills: <Sparkles className="h-4 w-4" /> };
+  const icons: Record<Step, React.ReactNode> = {
+    sso: <ShieldCheck className="h-4 w-4" />,
+    llm: <Bot className="h-4 w-4" />,
+    team: <Users className="h-4 w-4" />,
+    skills: <Sparkles className="h-4 w-4" />,
+  };
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 flex items-end justify-between gap-4">
@@ -120,9 +168,21 @@ export function OnboardingPage() {
             <button
               type="button"
               onClick={() => go(s)}
-              className={cn('flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-[12.5px] transition-colors', s === step ? 'border-accent bg-accent-soft text-fg' : 'border-border text-muted hover:text-fg')}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-[12.5px] transition-colors',
+                s === step
+                  ? 'border-accent bg-accent-soft text-fg'
+                  : 'border-border text-muted hover:text-fg',
+              )}
             >
-              <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px]', done[s] ? 'bg-ok text-white' : 'bg-bg-subtle')}>{done[s] ? <Check className="h-3 w-3" /> : i + 1}</span>
+              <span
+                className={cn(
+                  'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px]',
+                  done[s] ? 'bg-ok text-white' : 'bg-bg-subtle',
+                )}
+              >
+                {done[s] ? <Check className="h-3 w-3" /> : i + 1}
+              </span>
               <span className="hidden truncate sm:inline">{t(`onboarding.steps.${s}`)}</span>
             </button>
           </li>
@@ -137,7 +197,11 @@ export function OnboardingPage() {
         {step === 'team' && <TeamStep onDone={next} />}
         {step === 'skills' && <SkillsStep />}
         <div className="mt-6 flex justify-between border-t border-border pt-4">
-          <Button variant="ghost" disabled={step === 'sso'} onClick={() => go(STEPS[Math.max(0, STEPS.indexOf(step) - 1)]!)}>
+          <Button
+            variant="ghost"
+            disabled={step === 'sso'}
+            onClick={() => go(STEPS[Math.max(0, STEPS.indexOf(step) - 1)]!)}
+          >
             {t('common.back')}
           </Button>
           <Button onClick={next}>{step === 'skills' ? t('onboarding.finish') : t('common.skip')}</Button>

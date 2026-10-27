@@ -24,10 +24,17 @@ export async function emit(
     .from(webhook)
     .where(and(eq(webhook.orgId, orgId), eq(webhook.active, true)));
   const targets = hooks.filter(
-    (h) => h.events.includes(type) && (!h.namespaceId || !opts.namespaceId || h.namespaceId === opts.namespaceId),
+    (h) =>
+      h.events.includes(type) && (!h.namespaceId || !opts.namespaceId || h.namespaceId === opts.namespaceId),
   );
   if (!targets.length) return;
-  const envelope: EventEnvelope = { id: crypto.randomUUID(), type, createdAt: new Date().toISOString(), org: orgId, data };
+  const envelope: EventEnvelope = {
+    id: crypto.randomUUID(),
+    type,
+    createdAt: new Date().toISOString(),
+    org: orgId,
+    data,
+  };
   for (const h of targets) {
     const [d] = await ctx.db
       .insert(webhookDelivery)

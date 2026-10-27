@@ -21,7 +21,8 @@ export const skillFrontmatterSchema = z
     description: z.string().min(1).max(DESCRIPTION_MAX),
     license: z.string().optional(),
     compatibility: z.string().max(COMPATIBILITY_MAX).optional(),
-    metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+    // The spec defines metadata as string→string; real-world skills deviate, so non-strings only warn.
+    metadata: z.record(z.string(), z.unknown()).optional(),
     'allowed-tools': z.union([z.string(), z.array(z.string())]).optional(),
   })
   .passthrough();
@@ -61,13 +62,23 @@ export function validateSkill(files: FileMap, dirName?: string): SkillValidation
   const issues: ValidationIssue[] = [];
   const raw = files.get('SKILL.md');
   if (!raw) {
-    issues.push({ level: 'error', code: 'missing_skill_md', message: 'SKILL.md is missing at the skill root' });
+    issues.push({
+      level: 'error',
+      code: 'missing_skill_md',
+      message: 'SKILL.md is missing at the skill root',
+    });
     return { ok: false, frontmatter: {}, body: '', issues };
   }
   const parsed = parseSkillMd(utf8.decode(raw));
-  if (parsed.error) issues.push({ level: 'error', code: 'frontmatter_invalid', message: parsed.error, path: 'SKILL.md' });
+  if (parsed.error)
+    issues.push({ level: 'error', code: 'frontmatter_invalid', message: parsed.error, path: 'SKILL.md' });
   if (!parsed.hasFrontmatter) {
-    issues.push({ level: 'error', code: 'frontmatter_missing', message: 'SKILL.md has no YAML frontmatter', path: 'SKILL.md' });
+    issues.push({
+      level: 'error',
+      code: 'frontmatter_missing',
+      message: 'SKILL.md has no YAML frontmatter',
+      path: 'SKILL.md',
+    });
   }
   const result = skillFrontmatterSchema.safeParse(parsed.frontmatter);
   if (!result.success) {
@@ -89,8 +100,22 @@ export function validateSkill(files: FileMap, dirName?: string): SkillValidation
       path: 'SKILL.md',
     });
   }
+  const meta = parsed.frontmatter.metadata;
+  if (meta && typeof meta === 'object' && Object.values(meta).some((v) => typeof v !== 'string')) {
+    issues.push({
+      level: 'warning',
+      code: 'metadata_non_string',
+      message: 'metadata values should be strings (Agent Skills spec)',
+      path: 'SKILL.md',
+    });
+  }
   if (parsed.body.trim().length === 0) {
-    issues.push({ level: 'warning', code: 'empty_body', message: 'SKILL.md has no instructions body', path: 'SKILL.md' });
+    issues.push({
+      level: 'warning',
+      code: 'empty_body',
+      message: 'SKILL.md has no instructions body',
+      path: 'SKILL.md',
+    });
   }
   return {
     ok: !issues.some((i) => i.level === 'error'),

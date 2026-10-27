@@ -1,0 +1,102 @@
+image:
+  repository: ghcr.io/axiomat/dojohub
+  tag: ""            # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Public URL of DojoHub (install commands, SSO callbacks, git URLs).
+baseUrl: https://skills.example.com
+
+# Secret material. Either set values here or reference an existing Secret with keys
+# DOJO_SECRET_KEY and DATABASE_URL (plus optional S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY / GITHUB_TOKEN).
+existingSecret: ""
+secretKey: ""        # openssl rand -base64 48 (generated on install when empty)
+database:
+  url: ""            # postgres://user:pass@host:5432/dojohub — PostgreSQL 15+ with the pgvector extension
+
+auth:
+  local: true                 # email/password (keep on until SSO works)
+  bootstrapAdminEmail: ""     # this email becomes owner on first login
+  setupToken: ""              # fixed first-run setup token (otherwise printed in server logs)
+
+storage:
+  driver: fs                  # fs | s3
+  s3:
+    bucket: ""
+    region: us-east-1
+    endpoint: ""
+    forcePathStyle: true
+    accessKeyId: ""
+    secretAccessKey: ""
+
+# Volume for blobs (driver=fs) and the git materialisation cache. With driver=fs and more than one
+# server replica you need a ReadWriteMany storage class; prefer S3 for HA.
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes: [ReadWriteOnce]
+  size: 10Gi
+  existingClaim: ""
+
+server:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+worker:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+
+migrations:
+  enabled: true               # pre-install/pre-upgrade Job running `dojohub migrate`
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # nginx.ingress.kubernetes.io/proxy-body-size: 64m
+  hosts:
+    - host: skills.example.com
+      paths: [{ path: /, pathType: Prefix }]
+  tls: []
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+
+# Optional single-instance PostgreSQL (pgvector) for evaluation. Use a managed database in production.
+postgresql:
+  enabled: false
+  image: pgvector/pgvector:pg17
+  password: dojohub
+  size: 10Gi
+
+extraEnv: []
+#  - name: DOJO_OSV
+#    value: "true"
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000

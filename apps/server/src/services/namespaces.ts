@@ -22,7 +22,12 @@ export async function getNamespace(ctx: AppContext, orgId: string, slugOrId: str
   return byId;
 }
 
-export async function getReadableNamespace(ctx: AppContext, actor: Actor | null, orgId: string, slug: string) {
+export async function getReadableNamespace(
+  ctx: AppContext,
+  actor: Actor | null,
+  orgId: string,
+  slug: string,
+) {
   const ns = await getNamespace(ctx, orgId, slug);
   if (!canReadNamespace(actor, ns)) throw actor ? forbidden() : notFound('Namespace');
   return ns;
@@ -39,7 +44,10 @@ export async function listNamespaces(ctx: AppContext, actor: Actor | null, orgId
   for (const ns of visible) {
     const [[m], [s], [c]] = await Promise.all([
       ctx.db.select({ n: count() }).from(namespaceMember).where(eq(namespaceMember.namespaceId, ns.id)),
-      ctx.db.select({ n: count() }).from(skill).where(and(eq(skill.namespaceId, ns.id), isNull(skill.archivedAt))),
+      ctx.db
+        .select({ n: count() })
+        .from(skill)
+        .where(and(eq(skill.namespaceId, ns.id), isNull(skill.archivedAt))),
       ctx.db.select({ n: count() }).from(catalogEntry).where(eq(catalogEntry.namespaceId, ns.id)),
     ]);
     out.push({

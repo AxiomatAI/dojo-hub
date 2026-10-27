@@ -1,0 +1,11 @@
+DojoHub {{ .Chart.AppVersion }} is deploying.
+
+1. Public URL: {{ .Values.baseUrl }}
+2. First run: open the setup link printed in the server logs:
+     kubectl logs -n {{ .Release.Namespace }} deploy/{{ include "dojohub.fullname" . }}-server | grep setup
+3. Install skills with the standard CLI:
+     DISABLE_TELEMETRY=1 npx skills add {{ .Values.baseUrl }}/t/<team>
+{{- if and (eq .Values.storage.driver "fs") (gt (int .Values.server.replicas) 1) }}
+
+WARNING: storage.driver=fs with {{ .Values.server.replicas }} replicas requires a ReadWriteMany volume. Prefer storage.driver=s3.
+{{- end }}

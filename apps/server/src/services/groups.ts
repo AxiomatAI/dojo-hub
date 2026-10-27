@@ -1,4 +1,4 @@
-import { NAMESPACE_ROLES, ORG_ROLES, type NamespaceRole, type OrgRole } from '@dojohub/contract';
+import { NAMESPACE_ROLES, type NamespaceRole, ORG_ROLES, type OrgRole } from '@dojohub/contract';
 import { groupMapping, groupMembership, idpGroup, namespaceMember, orgMember } from '@dojohub/db';
 import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import type { AppContext } from '../context';
@@ -20,7 +20,13 @@ export async function upsertGroups(
   for (const g of groups) {
     const [row] = await ctx.db
       .insert(idpGroup)
-      .values({ orgId, externalId: g.externalId, displayName: g.displayName ?? g.externalId, source, providerId })
+      .values({
+        orgId,
+        externalId: g.externalId,
+        displayName: g.displayName ?? g.externalId,
+        source,
+        providerId,
+      })
       .onConflictDoUpdate({
         target: [idpGroup.orgId, idpGroup.externalId],
         set: g.displayName ? { displayName: g.displayName } : { externalId: g.externalId },
@@ -51,13 +57,22 @@ export async function syncUserGroups(
     if (stale.length) {
       await tx
         .delete(groupMembership)
-        .where(and(eq(groupMembership.userId, userId), eq(groupMembership.source, source), inArray(groupMembership.groupId, stale)));
+        .where(
+          and(
+            eq(groupMembership.userId, userId),
+            eq(groupMembership.source, source),
+            inArray(groupMembership.groupId, stale),
+          ),
+        );
     }
     for (const gid of groupIds) {
       await tx
         .insert(groupMembership)
         .values({ groupId: gid, userId, source })
-        .onConflictDoUpdate({ target: [groupMembership.groupId, groupMembership.userId], set: { syncedAt: new Date(), source } });
+        .onConflictDoUpdate({
+          target: [groupMembership.groupId, groupMembership.userId],
+          set: { syncedAt: new Date(), source },
+        });
     }
   });
   await applyGroupMappings(ctx, orgId, userId);
@@ -72,7 +87,10 @@ export async function applyGroupMappings(ctx: AppContext, orgId: string, userId:
     .where(and(eq(groupMembership.userId, userId), eq(idpGroup.orgId, orgId)));
   const groupIds = memberships.map((m) => m.groupId);
   const mappings = groupIds.length
-    ? await ctx.db.select().from(groupMapping).where(and(eq(groupMapping.orgId, orgId), inArray(groupMapping.groupId, groupIds)))
+    ? await ctx.db
+        .select()
+        .from(groupMapping)
+        .where(and(eq(groupMapping.orgId, orgId), inArray(groupMapping.groupId, groupIds)))
     : [];
 
   // Org role
@@ -83,7 +101,11 @@ export async function applyGroupMappings(ctx: AppContext, orgId: string, userId:
     .where(and(eq(orgMember.orgId, orgId), eq(orgMember.userId, userId)));
   if (current) {
     const mapped = ORG_RANK.find((r) => orgRoles.includes(r));
-    if (mapped && mapped !== current.role && (current.managed || ORG_RANK.indexOf(mapped) < ORG_RANK.indexOf(current.role))) {
+    if (
+      mapped &&
+      mapped !== current.role &&
+      (current.managed || ORG_RANK.indexOf(mapped) < ORG_RANK.indexOf(current.role))
+    ) {
       await ctx.db
         .update(orgMember)
         .set({ role: mapped, managed: true })
@@ -101,7 +123,8 @@ export async function applyGroupMappings(ctx: AppContext, orgId: string, userId:
   for (const m of mappings) {
     if (!m.namespaceId || !m.namespaceRole) continue;
     const prev = best.get(m.namespaceId);
-    if (!prev || NS_RANK.indexOf(m.namespaceRole) < NS_RANK.indexOf(prev)) best.set(m.namespaceId, m.namespaceRole);
+    if (!prev || NS_RANK.indexOf(m.namespaceRole) < NS_RANK.indexOf(prev))
+      best.set(m.namespaceId, m.namespaceRole);
   }
   const managed = await ctx.db
     .select()
@@ -136,16 +159,27 @@ export async function applyGroupMappings(ctx: AppContext, orgId: string, userId:
 
 /** Re-apply mappings for every member of a group (after mapping changes). */
 export async function reapplyForGroup(ctx: AppContext, orgId: string, groupId: string) {
-  const users = await ctx.db.select({ userId: groupMembership.userId }).from(groupMembership).where(eq(groupMembership.groupId, groupId));
+  const users = await ctx.db
+    .select({ userId: groupMembership.userId })
+    .from(groupMembership)
+    .where(eq(groupMembership.groupId, groupId));
   for (const u of users) await applyGroupMappings(ctx, orgId, u.userId);
 }
 
 export function extractGroupClaims(claims: Record<string, unknown>, claimPath: string): string[] {
-  const value = claimPath.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Record<string, unknown>)[k] : undefined), claims);
+  const value = claimPath
+    .split('.')
+    .reduce<unknown>(
+      (o, k) => (o && typeof o === 'object' ? (o as Record<string, unknown>)[k] : undefined),
+      claims,
+    );
   const out = new Set<string>();
   const add = (v: unknown) => {
-    if (typeof v === 'string') v.split(/[,\s]+/).filter(Boolean).forEach((s) => out.add(s));
-    else if (Array.isArray(v)) v.forEach(add);
+    if (typeof v === 'string') {
+      for (const s of v.split(/[,\s]+/).filter(Boolean)) out.add(s);
+    } else if (Array.isArray(v)) {
+      for (const x of v) add(x);
+    }
   };
   add(value);
   // Entra app roles arrive in `roles`; treat them as groups too.
@@ -164,4 +198,4 @@ export function decodeJwtPayload(token: string | undefined | null): Record<strin
   }
 }
 
-export { NAMESPACE_ROLES, ORG_ROLES, notInArray };
+export { NAMESPACE_ROLES, notInArray, ORG_ROLES };

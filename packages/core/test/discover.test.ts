@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { discover, fileMapFromRecord } from '../src';
 
-const skill = (name: string, extra = '') => `---\nname: ${name}\ndescription: Does ${name} things\n---\n# ${name}\n${extra}`;
+const skill = (name: string, extra = '') =>
+  `---\nname: ${name}\ndescription: Does ${name} things\n---\n# ${name}\n${extra}`;
 
 describe('discover', () => {
   it('treats a root SKILL.md as a single skill', () => {
-    const r = discover(fileMapFromRecord({ 'SKILL.md': skill('solo'), 'scripts/run.sh': '#!/bin/sh\necho hi' }));
+    const r = discover(
+      fileMapFromRecord({ 'SKILL.md': skill('solo'), 'scripts/run.sh': '#!/bin/sh\necho hi' }),
+    );
     expect(r.skills).toHaveLength(1);
     expect(r.skills[0]!.path).toBe('');
     expect([...r.skills[0]!.files.keys()].sort()).toEqual(['SKILL.md', 'scripts/run.sh']);
@@ -60,7 +63,12 @@ describe('discover', () => {
           name: 'anthropic-agent-skills',
           metadata: { version: '1.0.0' },
           plugins: [
-            { name: 'document-skills', source: './', strict: false, skills: ['./skills/pdf', './skills/xlsx'] },
+            {
+              name: 'document-skills',
+              source: './',
+              strict: false,
+              skills: ['./skills/pdf', './skills/xlsx'],
+            },
             { name: 'example-skills', source: './', strict: false, skills: ['./skills/art'] },
           ],
         }),
@@ -79,7 +87,10 @@ describe('discover', () => {
         '.claude-plugin/marketplace.json': JSON.stringify({
           plugins: [{ name: 'pstack', source: './harness/pstack/claude-code' }],
         }),
-        'harness/pstack/claude-code/.claude-plugin/plugin.json': JSON.stringify({ name: 'pstack', version: '0.15.35' }),
+        'harness/pstack/claude-code/.claude-plugin/plugin.json': JSON.stringify({
+          name: 'pstack',
+          version: '0.15.35',
+        }),
         'harness/pstack/claude-code/skills/architect/SKILL.md': skill('architect'),
         'harness/pstack/claude-code/agents/reviewer.md': 'agent',
       }),

@@ -1,4 +1,10 @@
-import type { FindingDto, InstallCommands, RiskLevel, SkillSummaryDto, VersionStatus } from '@dojohub/contract';
+import type {
+  FindingDto,
+  InstallCommands,
+  RiskLevel,
+  SkillSummaryDto,
+  VersionStatus,
+} from '@dojohub/contract';
 import { Link } from '@tanstack/react-router';
 import {
   AlertOctagon,
@@ -27,25 +33,45 @@ import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import { formatNumber, relativeTime } from '../lib/format';
 import { cn } from '../lib/utils';
-import { Badge, CopyField, Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger, Button, Tooltip } from './ui';
+import { Badge, Button, CopyField, Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger, Tooltip } from './ui';
 
 // ───────── Trust status ─────────
 const STATUS_STYLE: Record<VersionStatus, { icon: ReactNode; cls: string }> = {
   draft: { icon: <CircleDashed className="h-3.5 w-3.5" />, cls: 'text-subtle bg-bg-subtle border-border' },
   submitted: { icon: <Clock className="h-3.5 w-3.5" />, cls: 'text-info bg-info/10 border-transparent' },
-  scanning: { icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />, cls: 'text-info bg-info/10 border-transparent' },
+  scanning: {
+    icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+    cls: 'text-info bg-info/10 border-transparent',
+  },
   in_review: { icon: <CircleDot className="h-3.5 w-3.5" />, cls: 'text-warn bg-warn/10 border-transparent' },
   approved: { icon: <CheckCircle2 className="h-3.5 w-3.5" />, cls: 'text-ok bg-ok/10 border-transparent' },
   rejected: { icon: <XCircle className="h-3.5 w-3.5" />, cls: 'text-danger bg-danger/10 border-transparent' },
-  deprecated: { icon: <AlertTriangle className="h-3.5 w-3.5" />, cls: 'text-muted bg-bg-subtle border-border' },
+  deprecated: {
+    icon: <AlertTriangle className="h-3.5 w-3.5" />,
+    cls: 'text-muted bg-bg-subtle border-border',
+  },
   blocked: { icon: <Ban className="h-3.5 w-3.5" />, cls: 'text-white bg-danger border-transparent' },
 };
 
-export function StatusPill({ status, className, withHelp = true }: { status: VersionStatus; className?: string; withHelp?: boolean }) {
+export function StatusPill({
+  status,
+  className,
+  withHelp = true,
+}: {
+  status: VersionStatus;
+  className?: string;
+  withHelp?: boolean;
+}) {
   const { t } = useTranslation();
   const s = STATUS_STYLE[status];
   const pill = (
-    <span className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-px text-[11.5px] font-medium', s.cls, className)}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-px text-[11.5px] font-medium',
+        s.cls,
+        className,
+      )}
+    >
       {s.icon}
       {t(`status.${status}`)}
     </span>
@@ -54,11 +80,21 @@ export function StatusPill({ status, className, withHelp = true }: { status: Ver
 }
 
 export function StatusIcon({ status }: { status: VersionStatus }) {
-  return <span className={cn('inline-flex', STATUS_STYLE[status].cls.split(' ')[0])}>{STATUS_STYLE[status].icon}</span>;
+  return (
+    <span className={cn('inline-flex', STATUS_STYLE[status].cls.split(' ')[0])}>
+      {STATUS_STYLE[status].icon}
+    </span>
+  );
 }
 
 // ───────── Risk ─────────
-const RISK_TONE: Record<RiskLevel, 'ok' | 'info' | 'warn' | 'danger' | 'neutral'> = { none: 'ok', low: 'info', medium: 'warn', high: 'danger', critical: 'danger' };
+const RISK_TONE: Record<RiskLevel, 'ok' | 'info' | 'warn' | 'danger' | 'neutral'> = {
+  none: 'ok',
+  low: 'info',
+  medium: 'warn',
+  high: 'danger',
+  critical: 'danger',
+};
 
 export function RiskBadge({ level, score }: { level: RiskLevel | null; score?: number | null }) {
   const { t } = useTranslation();
@@ -82,7 +118,14 @@ const SEVERITY_ICON: Record<FindingDto['severity'], ReactNode> = {
 
 export function SeverityBadge({ severity }: { severity: FindingDto['severity'] }) {
   const { t } = useTranslation();
-  const tone = severity === 'critical' || severity === 'high' ? 'danger' : severity === 'medium' ? 'warn' : severity === 'low' ? 'neutral' : 'info';
+  const tone =
+    severity === 'critical' || severity === 'high'
+      ? 'danger'
+      : severity === 'medium'
+        ? 'warn'
+        : severity === 'low'
+          ? 'neutral'
+          : 'info';
   return (
     <Badge tone={tone} className={severity === 'critical' ? 'bg-danger text-white' : undefined}>
       {t(`severity.${severity}`)}
@@ -90,7 +133,13 @@ export function SeverityBadge({ severity }: { severity: FindingDto['severity'] }
   );
 }
 
-export function FindingList({ findings, onFile }: { findings: FindingDto[]; onFile?: (path: string) => void }) {
+export function FindingList({
+  findings,
+  onFile,
+}: {
+  findings: FindingDto[];
+  onFile?: (path: string) => void;
+}) {
   const { t } = useTranslation();
   const order = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
   const sorted = [...findings].sort((a, b) => order[a.severity] - order[b.severity]);
@@ -98,6 +147,7 @@ export function FindingList({ findings, onFile }: { findings: FindingDto[]; onFi
   return (
     <ul className="divide-y divide-border">
       {sorted.map((f, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: findings can repeat the same rule on one line
         <li key={`${f.rule}-${i}`} className="flex gap-3 px-4 py-2.5">
           <span className="mt-0.5">{SEVERITY_ICON[f.severity]}</span>
           <div className="min-w-0 flex-1">
@@ -108,13 +158,21 @@ export function FindingList({ findings, onFile }: { findings: FindingDto[]; onFi
             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[12px] text-subtle">
               <code className="font-mono">{f.rule}</code>
               {f.file && (
-                <button type="button" className="font-mono hover:text-accent" onClick={() => onFile?.(f.file!)}>
+                <button
+                  type="button"
+                  className="font-mono hover:text-accent"
+                  onClick={() => onFile?.(f.file!)}
+                >
                   {f.file}
                   {f.line ? `:${f.line}` : ''}
                 </button>
               )}
             </div>
-            {f.evidence && <pre className="mt-1.5 overflow-x-auto rounded-md border border-border bg-bg-subtle px-2 py-1 font-mono text-[11.5px] text-muted">{f.evidence}</pre>}
+            {f.evidence && (
+              <pre className="mt-1.5 overflow-x-auto rounded-md border border-border bg-bg-subtle px-2 py-1 font-mono text-[11.5px] text-muted">
+                {f.evidence}
+              </pre>
+            )}
           </div>
         </li>
       ))}
@@ -136,7 +194,13 @@ export function SkillGlyph({ name, size = 32 }: { name: string; size?: number })
   return (
     <div
       className="flex shrink-0 items-center justify-center rounded-lg border border-border font-mono font-semibold"
-      style={{ width: size, height: size, fontSize: size * 0.38, background: `linear-gradient(135deg, hsl(${hue} 60% 55% / .18), hsl(${(hue + 40) % 360} 60% 55% / .06))`, color: `hsl(${hue} 55% 55%)` }}
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.38,
+        background: `linear-gradient(135deg, hsl(${hue} 60% 55% / .18), hsl(${(hue + 40) % 360} 60% 55% / .06))`,
+        color: `hsl(${hue} 55% 55%)`,
+      }}
     >
       {name.slice(0, 2).toUpperCase()}
     </div>
@@ -161,7 +225,11 @@ export function SkillRow({ skill, right }: { skill: SkillSummaryDto; right?: Rea
       </div>
       <div className="hidden items-center gap-3 md:flex">
         <NamespaceChip slug={skill.namespace} />
-        {(skill.publishedVersion ?? skill.latestVersion) && <code className="font-mono text-[11.5px] text-subtle">v{skill.publishedVersion ?? skill.latestVersion}</code>}
+        {(skill.publishedVersion ?? skill.latestVersion) && (
+          <code className="font-mono text-[11.5px] text-subtle">
+            v{skill.publishedVersion ?? skill.latestVersion}
+          </code>
+        )}
         <span className="w-14 text-right text-[12px] text-subtle tabular-nums" title={t('common.installs')}>
           <Download className="mr-1 inline h-3 w-3" />
           {formatNumber(skill.installCount)}
@@ -170,7 +238,9 @@ export function SkillRow({ skill, right }: { skill: SkillSummaryDto; right?: Rea
       </div>
       <StatusPill status={skill.status} withHelp={false} />
       {right}
-      <span className="hidden w-20 text-right text-[12px] text-subtle lg:inline">{relativeTime(skill.updatedAt)}</span>
+      <span className="hidden w-20 text-right text-[12px] text-subtle lg:inline">
+        {relativeTime(skill.updatedAt)}
+      </span>
     </Link>
   );
 }
@@ -210,7 +280,13 @@ export function InstallPanel({ install }: { install: InstallCommands }) {
 }
 
 // ───────── Content rendering ─────────
-export function Markdown({ children, stripFrontmatter = true }: { children: string; stripFrontmatter?: boolean }) {
+export function Markdown({
+  children,
+  stripFrontmatter = true,
+}: {
+  children: string;
+  stripFrontmatter?: boolean;
+}) {
   const text = stripFrontmatter ? children.replace(/^﻿?---[\s\S]*?\n---\s*\n?/, '') : children;
   return (
     <div className="prose-dojo">
@@ -221,7 +297,27 @@ export function Markdown({ children, stripFrontmatter = true }: { children: stri
   );
 }
 
-const LANG: Record<string, string> = { ts: 'typescript', tsx: 'tsx', js: 'javascript', mjs: 'javascript', py: 'python', sh: 'bash', bash: 'bash', json: 'json', yml: 'yaml', yaml: 'yaml', md: 'markdown', html: 'html', css: 'css', sql: 'sql', toml: 'toml', ps1: 'powershell', rb: 'ruby', go: 'go', rs: 'rust' };
+const LANG: Record<string, string> = {
+  ts: 'typescript',
+  tsx: 'tsx',
+  js: 'javascript',
+  mjs: 'javascript',
+  py: 'python',
+  sh: 'bash',
+  bash: 'bash',
+  json: 'json',
+  yml: 'yaml',
+  yaml: 'yaml',
+  md: 'markdown',
+  html: 'html',
+  css: 'css',
+  sql: 'sql',
+  toml: 'toml',
+  ps1: 'powershell',
+  rb: 'ruby',
+  go: 'go',
+  rs: 'rust',
+};
 
 export function CodeView({ path, code }: { path: string; code: string }) {
   const [html, setHtml] = useState<string | null>(null);
@@ -231,7 +327,13 @@ export function CodeView({ path, code }: { path: string; code: string }) {
     setHtml(null);
     if (code.length > 200_000) return;
     import('shiki')
-      .then(({ codeToHtml }) => codeToHtml(code, { lang, themes: { light: 'github-light', dark: 'github-dark-dimmed' }, defaultColor: 'light' }))
+      .then(({ codeToHtml }) =>
+        codeToHtml(code, {
+          lang,
+          themes: { light: 'github-light', dark: 'github-dark-dimmed' },
+          defaultColor: 'light',
+        }),
+      )
       .then((h) => alive && setHtml(h))
       .catch(() => {});
     return () => {
@@ -262,10 +364,20 @@ export function fileIcon(path: string) {
   return <FileCode2 className="h-3.5 w-3.5" />;
 }
 
-export function FileTree({ files, selected, onSelect }: { files: { path: string; riskFlags?: string[]; size?: number }[]; selected?: string | null; onSelect: (p: string) => void }) {
+export function FileTree({
+  files,
+  selected,
+  onSelect,
+}: {
+  files: { path: string; riskFlags?: string[]; size?: number }[];
+  selected?: string | null;
+  onSelect: (p: string) => void;
+}) {
   const groups = useMemo(() => {
     const map = new Map<string, typeof files>();
-    for (const f of [...files].sort((a, b) => (a.path === 'SKILL.md' ? -1 : b.path === 'SKILL.md' ? 1 : a.path.localeCompare(b.path)))) {
+    for (const f of [...files].sort((a, b) =>
+      a.path === 'SKILL.md' ? -1 : b.path === 'SKILL.md' ? 1 : a.path.localeCompare(b.path),
+    )) {
       const dir = f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '';
       map.set(dir, [...(map.get(dir) ?? []), f]);
     }
@@ -286,11 +398,17 @@ export function FileTree({ files, selected, onSelect }: { files: { path: string;
               type="button"
               key={f.path}
               onClick={() => onSelect(f.path)}
-              className={cn('flex w-full items-center gap-1.5 px-3 py-1 text-left hover:bg-panel-hover', dir && 'pl-6', selected === f.path && 'bg-accent-soft text-accent')}
+              className={cn(
+                'flex w-full items-center gap-1.5 px-3 py-1 text-left hover:bg-panel-hover',
+                dir && 'pl-6',
+                selected === f.path && 'bg-accent-soft text-accent',
+              )}
             >
               <span className="text-subtle">{fileIcon(f.path)}</span>
               <span className="min-w-0 flex-1 truncate font-mono">{f.path.split('/').pop()}</span>
-              {f.riskFlags?.some((r) => ['binary', 'obfuscated', 'hidden-unicode', 'executable'].includes(r)) && <ShieldAlert className="h-3 w-3 text-danger" />}
+              {f.riskFlags?.some((r) =>
+                ['binary', 'obfuscated', 'hidden-unicode', 'executable'].includes(r),
+              ) && <ShieldAlert className="h-3 w-3 text-danger" />}
               {f.riskFlags?.includes('script') && <Terminal className="h-3 w-3 text-warn" />}
             </button>
           ))}
@@ -306,7 +424,10 @@ export function RiskFlags({ flags }: { flags: string[] }) {
   return (
     <div className="flex flex-wrap gap-1">
       {flags.map((f) => (
-        <Badge key={f} tone={danger.includes(f) ? 'danger' : f === 'script' || f === 'network' ? 'warn' : 'neutral'}>
+        <Badge
+          key={f}
+          tone={danger.includes(f) ? 'danger' : f === 'script' || f === 'network' ? 'warn' : 'neutral'}
+        >
           {f}
         </Badge>
       ))}

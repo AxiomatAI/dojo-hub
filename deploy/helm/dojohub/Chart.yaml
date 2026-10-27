@@ -1,0 +1,12 @@
+apiVersion: v2
+name: dojohub
+description: DojoHub (道場) — self-hosted, enterprise-grade registry for AI agent skills
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/axiomat/dojohub
+sources: ["https://github.com/axiomat/dojohub"]
+keywords: [agent-skills, claude-code, cursor, codex, registry, mcp]
+maintainers:
+  - name: Axiomat
+    url: https://github.com/axiomat

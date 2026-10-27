@@ -15,7 +15,11 @@ export const QUEUES = {
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 
 export interface Jobs {
-  send(queue: QueueName, data: object, opts?: { singletonKey?: string; startAfter?: number; retryLimit?: number }): Promise<void>;
+  send(
+    queue: QueueName,
+    data: object,
+    opts?: { singletonKey?: string; startAfter?: number; retryLimit?: number },
+  ): Promise<void>;
   boss: PgBoss | null;
 }
 

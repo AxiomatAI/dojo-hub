@@ -1,7 +1,7 @@
-import { INSTALLABLE_STATUSES, type VersionStatus, VERSION_TRANSITIONS } from '@dojohub/contract';
+import { INSTALLABLE_STATUSES, VERSION_TRANSITIONS, type VersionStatus } from '@dojohub/contract';
 import {
-  createTarGz,
   contentHash,
+  createTarGz,
   type FileMap,
   findExternalReferences,
   isGreater,
@@ -17,8 +17,8 @@ import { classifyFile, mimeOf } from '@dojohub/scanner';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import semver from 'semver';
 import type { AppContext } from '../context';
-import { AppError, badRequest, conflict, notFound } from '../lib/errors';
 import { sha256 } from '../lib/crypto';
+import { AppError, badRequest, conflict, notFound } from '../lib/errors';
 import { audit } from './audit';
 import { emit } from './events';
 import type { NamespaceRow } from './namespaces';
@@ -62,10 +62,11 @@ const MAX_TOTAL = 50 * 1024 * 1024;
  * content-addressed blob store; a deterministic tar.gz is built for distribution.
  */
 export async function ingestVersion(ctx: AppContext, input: IngestInput): Promise<IngestResult> {
-  let files = new Map(input.files);
+  const files = new Map(input.files);
   const transformations = [...(input.transformations ?? [])];
   if (files.size === 0) throw badRequest('No files provided');
-  if (files.size > MAX_FILES) throw new AppError(413, 'too_many_files', `A skill may contain at most ${MAX_FILES} files`);
+  if (files.size > MAX_FILES)
+    throw new AppError(413, 'too_many_files', `A skill may contain at most ${MAX_FILES} files`);
   let total = 0;
   for (const b of files.values()) total += b.byteLength;
   if (total > MAX_TOTAL) throw new AppError(413, 'too_large', 'Skill exceeds the 50 MB size limit');
@@ -80,7 +81,12 @@ export async function ingestVersion(ctx: AppContext, input: IngestInput): Promis
 
   const validation = validateSkill(files);
   if (!validation.ok) {
-    throw new AppError(422, 'invalid_skill', 'The skill does not follow the Agent Skills specification', validation.issues);
+    throw new AppError(
+      422,
+      'invalid_skill',
+      'The skill does not follow the Agent Skills specification',
+      validation.issues,
+    );
   }
   const name = String(validation.frontmatter.name);
   const description = String(validation.frontmatter.description);
@@ -88,10 +94,18 @@ export async function ingestVersion(ctx: AppContext, input: IngestInput): Promis
 
   // Resolve or create the skill record. Names are unique per org (agents install by name).
   let [existing] = input.skillId
-    ? await ctx.db.select().from(skill).where(and(eq(skill.orgId, input.orgId), eq(skill.id, input.skillId)))
-    : await ctx.db.select().from(skill).where(and(eq(skill.orgId, input.orgId), eq(skill.name, name)));
+    ? await ctx.db
+        .select()
+        .from(skill)
+        .where(and(eq(skill.orgId, input.orgId), eq(skill.id, input.skillId)))
+    : await ctx.db
+        .select()
+        .from(skill)
+        .where(and(eq(skill.orgId, input.orgId), eq(skill.name, name)));
   if (existing && existing.namespaceId !== input.ns.id && !input.skillId) {
-    throw conflict(`A skill named "${name}" already exists in another namespace. Rename it or use a name prefix.`);
+    throw conflict(
+      `A skill named "${name}" already exists in another namespace. Rename it or use a name prefix.`,
+    );
   }
   if (existing && existing.name !== name) {
     throw badRequest(`Skill name cannot change between versions ("${existing.name}" → "${name}")`);
@@ -111,13 +125,12 @@ export async function ingestVersion(ctx: AppContext, input: IngestInput): Promis
   }
 
   const fmVersion = (validation.frontmatter.metadata as Record<string, unknown> | undefined)?.version;
-  let version = input.version ?? (typeof fmVersion === 'string' && isValidVersion(fmVersion) ? fmVersion : undefined);
+  let version =
+    input.version ?? (typeof fmVersion === 'string' && isValidVersion(fmVersion) ? fmVersion : undefined);
   const latestSemver = existing ? await latestVersionString(ctx, existing.id) : null;
   if (!version) {
     const bump =
-      previous && latestSemver
-        ? suggestBump(previous.frontmatter, validation.frontmatter, 0)
-        : 'patch';
+      previous && latestSemver ? suggestBump(previous.frontmatter, validation.frontmatter, 0) : 'patch';
     version = latestSemver ? nextVersion(latestSemver, bump) : '1.0.0';
   }
   if (!isValidVersion(version)) throw badRequest(`"${version}" is not a valid semantic version`);
@@ -130,7 +143,13 @@ export async function ingestVersion(ctx: AppContext, input: IngestInput): Promis
   for (const path of [...files.keys()].sort()) {
     const bytes = files.get(path)!;
     const sha = await ctx.blobs.put(bytes);
-    manifest.push({ path, sha256: sha, size: bytes.byteLength, mime: mimeOf(path, bytes), flags: classifyFile(path, bytes) });
+    manifest.push({
+      path,
+      sha256: sha,
+      size: bytes.byteLength,
+      mime: mimeOf(path, bytes),
+      flags: classifyFile(path, bytes),
+    });
   }
   const archive = createTarGz(files);
   const archiveSha = await ctx.blobs.put(archive);
@@ -216,10 +235,23 @@ export async function submitVersion(
 ) {
   const v = await getVersion(ctx, orgId, versionId);
   await transition(ctx, v, 'submitted', null);
-  await ctx.db.update(skillVersion).set({ submittedAt: new Date(), submittedBy: actorId ?? v.submittedBy }).where(eq(skillVersion.id, v.id));
+  await ctx.db
+    .update(skillVersion)
+    .set({ submittedAt: new Date(), submittedBy: actorId ?? v.submittedBy })
+    .where(eq(skillVersion.id, v.id));
   const [s] = await ctx.db.select().from(skill).where(eq(skill.id, v.skillId));
-  await emit(ctx, orgId, 'skill.submitted', { skill: s?.name, version: v.version, versionId: v.id }, { namespaceId: s?.namespaceId });
-  await ctx.jobs.send('version.scan', { versionId: v.id, kind: kind ?? null }, { singletonKey: `scan:${v.id}` });
+  await emit(
+    ctx,
+    orgId,
+    'skill.submitted',
+    { skill: s?.name, version: v.version, versionId: v.id },
+    { namespaceId: s?.namespaceId },
+  );
+  await ctx.jobs.send(
+    'version.scan',
+    { versionId: v.id, kind: kind ?? null },
+    { singletonKey: `scan:${v.id}` },
+  );
 }
 
 export async function getVersion(ctx: AppContext, orgId: string, versionId: string): Promise<VersionRow> {
@@ -268,8 +300,14 @@ export async function recomputeSkill(ctx: AppContext, skillId: string) {
 }
 
 export async function latestVersionString(ctx: AppContext, skillId: string): Promise<string | null> {
-  const rows = await ctx.db.select({ version: skillVersion.version }).from(skillVersion).where(eq(skillVersion.skillId, skillId));
-  const sorted = rows.map((r) => r.version).filter((v) => semver.valid(v)).sort(semver.rcompare);
+  const rows = await ctx.db
+    .select({ version: skillVersion.version })
+    .from(skillVersion)
+    .where(eq(skillVersion.skillId, skillId));
+  const sorted = rows
+    .map((r) => r.version)
+    .filter((v) => semver.valid(v))
+    .sort(semver.rcompare);
   return sorted[0] ?? null;
 }
 
@@ -295,7 +333,11 @@ export async function loadArchive(ctx: AppContext, v: VersionRow): Promise<Uint8
 }
 
 /** The newest installable version of a skill (approved preferred, then deprecated). */
-export async function installableVersion(ctx: AppContext, skillId: string, selector?: string | null): Promise<VersionRow | null> {
+export async function installableVersion(
+  ctx: AppContext,
+  skillId: string,
+  selector?: string | null,
+): Promise<VersionRow | null> {
   const rows = await ctx.db
     .select()
     .from(skillVersion)
@@ -315,22 +357,35 @@ export async function previousApprovedVersion(ctx: AppContext, v: VersionRow): P
   const rows = await ctx.db
     .select()
     .from(skillVersion)
-    .where(and(eq(skillVersion.skillId, v.skillId), inArray(skillVersion.status, ['approved', 'deprecated'])));
-  const older = rows.filter((r) => r.id !== v.id && semver.lt(r.version, v.version)).sort((a, b) => semver.rcompare(a.version, b.version));
+    .where(
+      and(eq(skillVersion.skillId, v.skillId), inArray(skillVersion.status, ['approved', 'deprecated'])),
+    );
+  const older = rows
+    .filter((r) => r.id !== v.id && semver.lt(r.version, v.version))
+    .sort((a, b) => semver.rcompare(a.version, b.version));
   return older[0] ?? null;
 }
 
 export function titleCase(name: string): string {
   return name
     .split('-')
-    .map((w) => (w.length <= 3 && /^(pdf|api|cli|sql|aws|gcp|ui|ux|ai|llm|mcp|csv|xml|git)$/.test(w) ? w.toUpperCase() : w[0]!.toUpperCase() + w.slice(1)))
+    .map((w) =>
+      w.length <= 3 &&
+      /^(pdf|api|cli|sql|aws|gcp|ui|ux|ai|llm|mcp|csv|xml|git|pr|ci|cd|sdk|k8s|db|qa|seo)$/.test(w)
+        ? w.toUpperCase()
+        : w[0]!.toUpperCase() + w.slice(1),
+    )
     .join(' ');
 }
 
 function extractTags(fm: Record<string, unknown>): string[] {
   const meta = (fm.metadata ?? {}) as Record<string, unknown>;
   const raw = meta.tags ?? fm.tags;
-  if (typeof raw === 'string') return raw.split(/[,\s]+/).filter(Boolean).slice(0, 10);
+  if (typeof raw === 'string')
+    return raw
+      .split(/[,\s]+/)
+      .filter(Boolean)
+      .slice(0, 10);
   if (Array.isArray(raw)) return raw.filter((t): t is string => typeof t === 'string').slice(0, 10);
   return [];
 }

@@ -1,5 +1,5 @@
-import { serve } from '@hono/node-server';
 import { runMigrations, user } from '@dojohub/db';
+import { serve } from '@hono/node-server';
 import { count } from 'drizzle-orm';
 import { createApp } from './app';
 import { loadConfig } from './config';
@@ -23,7 +23,9 @@ async function announceSetup(ctx: AppContext) {
   const [{ n }] = (await ctx.db.select({ n: count() }).from(user)) as [{ n: number }];
   if (n > 0) return;
   if (!config.DOJO_SETUP_TOKEN) config.DOJO_SETUP_TOKEN = randomToken(18);
-  logger.info(`\n\n  DojoHub is not set up yet. Open this one-time link to create the first administrator:\n\n    ${config.DOJO_BASE_URL}/setup?token=${config.DOJO_SETUP_TOKEN}\n`);
+  logger.info(
+    `\n\n  DojoHub is not set up yet. Open this one-time link to create the first administrator:\n\n    ${config.DOJO_BASE_URL}/setup?token=${config.DOJO_SETUP_TOKEN}\n`,
+  );
 }
 
 async function main() {
@@ -55,7 +57,9 @@ async function main() {
   if (command === 'server' || command === 'all') {
     const app = createApp(ctx);
     serve({ fetch: app.fetch, port: config.PORT, hostname: config.HOST }, (info) => {
-      logger.info(`DojoHub listening on http://${info.address}:${info.port} (public URL ${config.DOJO_BASE_URL})`);
+      logger.info(
+        `DojoHub listening on http://${info.address}:${info.port} (public URL ${config.DOJO_BASE_URL})`,
+      );
     });
     await announceSetup(ctx);
   }

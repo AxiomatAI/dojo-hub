@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { nextVersion, resolveVersion, suggestBump, unifiedDiff, validateSkill, fileMapFromRecord, patchFrontmatter } from '../src';
+import {
+  fileMapFromRecord,
+  nextVersion,
+  patchFrontmatter,
+  resolveVersion,
+  suggestBump,
+  unifiedDiff,
+  validateSkill,
+} from '../src';
 
 describe('versions', () => {
   it('bumps and resolves', () => {
@@ -20,6 +28,8 @@ describe('versions', () => {
     const files = fileMapFromRecord({ 'SKILL.md': '---\nname: pdf\ndescription: PDFs\n---\nUse it.' });
     expect(validateSkill(files, 'pdf').ok).toBe(true);
     expect(validateSkill(files, 'other').issues.map((i) => i.code)).toContain('name_dir_mismatch');
-    expect(patchFrontmatter('---\nname: pdf\ndescription: PDFs\n---\nUse it.', { name: 'acme-pdf' })).toContain('name: acme-pdf');
+    expect(
+      patchFrontmatter('---\nname: pdf\ndescription: PDFs\n---\nUse it.', { name: 'acme-pdf' }),
+    ).toContain('name: acme-pdf');
   });
 });

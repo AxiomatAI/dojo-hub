@@ -537,7 +537,10 @@ export const approvalRequest = pgTable(
       .notNull()
       .references(() => namespace.id, { onDelete: 'cascade' }),
     kind: text('kind').$type<'new' | 'update' | 'import' | 'unblock'>().notNull().default('new'),
-    status: text('status').$type<'pending' | 'approved' | 'rejected' | 'cancelled'>().notNull().default('pending'),
+    status: text('status')
+      .$type<'pending' | 'approved' | 'rejected' | 'cancelled'>()
+      .notNull()
+      .default('pending'),
     policySnapshot: jsonb('policy_snapshot').$type<unknown>().notNull(),
     currentStage: integer('current_stage').default(0).notNull(),
     requestedBy: text('requested_by').references(() => user.id, { onDelete: 'set null' }),
@@ -645,7 +648,10 @@ export const installEvent = pgTable(
     clientHash: text('client_hash'),
     createdAt: createdAt(),
   },
-  (t) => [index('install_event_time_idx').on(t.orgId, t.createdAt), index('install_event_skill_idx').on(t.skillId)],
+  (t) => [
+    index('install_event_time_idx').on(t.orgId, t.createdAt),
+    index('install_event_skill_idx').on(t.skillId),
+  ],
 );
 
 export const dailyStat = pgTable(
@@ -718,8 +724,7 @@ export const llmConfig = pgTable(
 
 export const decisionModel = pgTable('decision_model', {
   id: id(),
-  orgId: orgId()
-    .unique(),
+  orgId: orgId().unique(),
   name: text('name').notNull(),
   url: text('url').notNull(),
   secretEnc: text('secret_enc'),

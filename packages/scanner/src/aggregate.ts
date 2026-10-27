@@ -33,12 +33,16 @@ export function aggregate(results: AnalyzerResult[], blockOn: string[] = []): Ve
   score = Math.min(100, Math.round(score));
   let riskLevel = levelForScore(score);
   if (findings.some((f) => f.severity === 'critical')) riskLevel = 'critical';
-  else if (findings.some((f) => f.severity === 'high') && (riskLevel === 'none' || riskLevel === 'low')) riskLevel = 'medium';
+  else if (findings.some((f) => f.severity === 'high') && (riskLevel === 'none' || riskLevel === 'low'))
+    riskLevel = 'medium';
 
   const blockedBy = findings
-    .filter((f) => blockOn.some((b) => f.rule === b || f.rule.startsWith(`${b}.`) || f.rule.split('.')[0] === b))
+    .filter((f) =>
+      blockOn.some((b) => f.rule === b || f.rule.startsWith(`${b}.`) || f.rule.split('.')[0] === b),
+    )
     .map((f) => f.rule);
-  const claimsScore = (llm?.report as { claimsMatch?: { score?: number } } | undefined)?.claimsMatch?.score ?? null;
+  const claimsScore =
+    (llm?.report as { claimsMatch?: { score?: number } } | undefined)?.claimsMatch?.score ?? null;
   const verdict =
     blockedBy.length || riskLevel === 'critical' || llmVerdict === 'malicious' || dmDecision === 'deny'
       ? 'fail'

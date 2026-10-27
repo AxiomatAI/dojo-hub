@@ -1,24 +1,24 @@
 import { z } from 'zod';
 import {
-  catalogLevel,
-  decision,
-  llmProvider,
-  namespaceRole,
-  orgRole,
-  patScope,
-  sourceKind,
-  visibility,
-  webhookEvent,
   type AssetFlag,
   type CatalogLevel,
+  catalogLevel,
+  decision,
   type InstallChannel,
+  llmProvider,
   type NamespaceRole,
+  namespaceRole,
   type OrgRole,
+  orgRole,
+  patScope,
   type RiskLevel,
   type SourceItemStatus,
   type SourceKind,
+  sourceKind,
   type VersionStatus,
   type Visibility,
+  visibility,
+  webhookEvent,
 } from './enums';
 import { policyDocumentSchema } from './policy';
 
@@ -81,7 +81,10 @@ export const createSuiteBody = z.object({
   displayName: z.string().min(1),
   description: z.string().max(2000).default(''),
   version: z.string().default('1.0.0'),
-  members: z.array(z.object({ skillVersionId: z.string(), isEntry: z.boolean().default(false) })).min(1).max(100),
+  members: z
+    .array(z.object({ skillVersionId: z.string(), isEntry: z.boolean().default(false) }))
+    .min(1)
+    .max(100),
   submit: z.boolean().default(true),
 });
 
@@ -314,7 +317,13 @@ export interface ApprovalStageDto {
   status: string;
   minApprovals: number;
   approvers: { users?: string[]; groups?: string[]; roles?: string[] };
-  decisions: { actor: UserSummary | null; actorType: string; decision: string; comment: string | null; createdAt: string }[];
+  decisions: {
+    actor: UserSummary | null;
+    actorType: string;
+    decision: string;
+    comment: string | null;
+    createdAt: string;
+  }[];
   canDecide: boolean;
 }
 

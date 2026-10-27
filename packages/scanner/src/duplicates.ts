@@ -21,7 +21,12 @@ export function normalizeForSimilarity(files: FileMap): string {
     if (!isProbablyText(path, bytes)) continue;
     let text = utf8.decode(bytes);
     if (path === 'SKILL.md') text = text.replace(/^---[\s\S]*?\n---/, (fm) => fm.replace(/^name:.*$/m, ''));
-    parts.push(text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim());
+    parts.push(
+      text
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .trim(),
+    );
   }
   return parts.join(' ');
 }

@@ -71,7 +71,9 @@ function readJson(files: FileMap, path: string, warnings: string[]): Record<stri
   if (!raw) return null;
   try {
     const data = JSON.parse(utf8.decode(raw)) as unknown;
-    return data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
+    return data && typeof data === 'object' && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : null;
   } catch (err) {
     warnings.push(`${path}: invalid JSON (${(err as Error).message})`);
     return null;
@@ -174,7 +176,13 @@ function discoverManifests(files: FileMap, warnings: string[]): DiscoveredSuite[
         continue;
       }
       const base = normalizePath(joinPath(pluginRoot, source)) ?? '';
-      const nested = suiteFromPluginJson(files, base, joinPath(base, `${pluginDir}/plugin.json`), origin, warnings);
+      const nested = suiteFromPluginJson(
+        files,
+        base,
+        joinPath(base, `${pluginDir}/plugin.json`),
+        origin,
+        warnings,
+      );
       const skillPaths = plugin.skills
         ? pluginSkillPaths(files, base, plugin.skills)
         : (nested?.skillPaths ?? pluginSkillPaths(files, base, undefined));
@@ -224,7 +232,8 @@ export function discover(files: FileMap, opts: DiscoveryOptions = {}): Discovery
   } else {
     const suites = discoverManifests(files, warnings);
     for (const s of suites) for (const p of s.skillPaths) dirs.add(p);
-    for (const c of SKILL_CONTAINER_DIRS) for (const d of skillDirsUnder(files, c, CONTAINER_DEPTH)) dirs.add(d);
+    for (const c of SKILL_CONTAINER_DIRS)
+      for (const d of skillDirsUnder(files, c, CONTAINER_DEPTH)) dirs.add(d);
     if (dirs.size === 0 || opts.fullDepth) {
       for (const d of skillDirsUnder(files, '', FALLBACK_DEPTH)) dirs.add(d);
       if (files.has('SKILL.md')) dirs.add('');

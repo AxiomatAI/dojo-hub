@@ -15,11 +15,20 @@ export function HomePage() {
   const firstTeam = me.namespaces.find((n) => n.slug !== 'org');
   const forYou = useQuery({
     queryKey: ['skills', 'for-you', firstTeam?.slug],
-    queryFn: () => api.get<Paginated<SkillSummaryDto>>(`skills?team=${firstTeam!.slug}&status=approved,deprecated&pageSize=6&sort=installs`),
+    queryFn: () =>
+      api.get<Paginated<SkillSummaryDto>>(
+        `skills?team=${firstTeam!.slug}&status=approved,deprecated&pageSize=6&sort=installs`,
+      ),
     enabled: !!firstTeam,
   });
-  const recent = useQuery({ queryKey: ['skills', 'recent'], queryFn: () => api.get<Paginated<SkillSummaryDto>>('skills?pageSize=8&sort=updated') });
-  const reviews = useQuery({ queryKey: ['reviews', 'assigned'], queryFn: () => api.get<ReviewDto[]>('reviews?status=pending&assigned=true') });
+  const recent = useQuery({
+    queryKey: ['skills', 'recent'],
+    queryFn: () => api.get<Paginated<SkillSummaryDto>>('skills?pageSize=8&sort=updated'),
+  });
+  const reviews = useQuery({
+    queryKey: ['reviews', 'assigned'],
+    queryFn: () => api.get<ReviewDto[]>('reviews?status=pending&assigned=true'),
+  });
   const teams = useQuery({ queryKey: ['namespaces'], queryFn: () => api.get<NamespaceDto[]>('namespaces') });
   const firstName = me.name.split(' ')[0];
   const empty = recent.data && recent.data.total === 0;
@@ -28,7 +37,9 @@ export function HomePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">{t('home.greeting', { name: firstName })}</h1>
+          <h1 className="text-[22px] font-semibold tracking-tight">
+            {t('home.greeting', { name: firstName })}
+          </h1>
           <p className="mt-0.5 text-muted">{t('home.subtitle')}</p>
         </div>
         <div className="flex gap-2">
@@ -63,7 +74,7 @@ export function HomePage() {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
           {firstTeam && (
             <Card>
@@ -71,34 +82,58 @@ export function HomePage() {
                 title={t('home.forYou')}
                 description={firstTeam.displayName}
                 actions={
-                  <Link to="/teams/$slug" params={{ slug: firstTeam.slug }} className="text-[12.5px] text-accent">
+                  <Link
+                    to="/teams/$slug"
+                    params={{ slug: firstTeam.slug }}
+                    className="text-[12.5px] text-accent"
+                  >
                     {t('common.view')} <ArrowRight className="inline h-3 w-3" />
                   </Link>
                 }
               />
               {forYou.isLoading && <Skeleton className="m-4 h-24" />}
-              {forYou.data?.items.length === 0 && <p className="px-4 py-6 text-[13px] text-muted">{t('teams.catalogEmpty')}</p>}
-              {forYou.data?.items.map((s) => <SkillRow key={s.id} skill={s} />)}
+              {forYou.data?.items.length === 0 && (
+                <p className="px-4 py-6 text-[13px] text-muted">{t('teams.catalogEmpty')}</p>
+              )}
+              {forYou.data?.items.map((s) => (
+                <SkillRow key={s.id} skill={s} />
+              ))}
             </Card>
           )}
           <Card>
-            <CardHeader title={t('home.recent')} actions={<Link to="/skills" className="text-[12.5px] text-accent">{t('common.view')} <ArrowRight className="inline h-3 w-3" /></Link>} />
+            <CardHeader
+              title={t('home.recent')}
+              actions={
+                <Link to="/skills" className="text-[12.5px] text-accent">
+                  {t('common.view')} <ArrowRight className="inline h-3 w-3" />
+                </Link>
+              }
+            />
             {recent.isLoading && <Skeleton className="m-4 h-40" />}
-            {recent.data?.items.map((s) => <SkillRow key={s.id} skill={s} />)}
+            {recent.data?.items.map((s) => (
+              <SkillRow key={s.id} skill={s} />
+            ))}
           </Card>
         </div>
         <div className="space-y-6">
           <Card>
             <CardHeader title={t('home.pendingForYou')} actions={<Inbox className="h-4 w-4 text-subtle" />} />
-            {reviews.data?.length === 0 && <p className="px-4 py-5 text-[13px] text-muted">{t('home.noPending')}</p>}
+            {reviews.data?.length === 0 && (
+              <p className="px-4 py-5 text-[13px] text-muted">{t('home.noPending')}</p>
+            )}
             <ul>
               {reviews.data?.slice(0, 6).map((r) => (
                 <li key={r.id}>
-                  <Link to="/reviews/$id" params={{ id: r.id }} className="flex items-center gap-2.5 border-b border-border px-4 py-2.5 last:border-b-0 hover:bg-panel-hover">
+                  <Link
+                    to="/reviews/$id"
+                    params={{ id: r.id }}
+                    className="flex items-center gap-2.5 border-b border-border px-4 py-2.5 last:border-b-0 hover:bg-panel-hover"
+                  >
                     <StatusIcon status="in_review" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[13px] font-medium">
-                        {r.subject.displayName} <span className="font-mono text-[11.5px] text-subtle">v{r.subject.version}</span>
+                        {r.subject.displayName}{' '}
+                        <span className="font-mono text-[11.5px] text-subtle">v{r.subject.version}</span>
                       </div>
                       <div className="text-[12px] text-subtle">
                         {t(`reviews.kind.${r.kind}`)} · {relativeTime(r.createdAt)}
@@ -134,13 +169,22 @@ export function HomePage() {
                   .slice(0, 8)
                   .map((n) => (
                     <li key={n.id}>
-                      <Link to="/teams/$slug" params={{ slug: n.slug }} className="flex items-center gap-2 px-4 py-1.5 text-[13px] hover:bg-panel-hover">
-                        <span className="h-2.5 w-2.5 rounded-sm" style={{ background: n.color ?? 'var(--fg-subtle)' }} />
+                      <Link
+                        to="/teams/$slug"
+                        params={{ slug: n.slug }}
+                        className="flex items-center gap-2 px-4 py-1.5 text-[13px] hover:bg-panel-hover"
+                      >
+                        <span
+                          className="h-2.5 w-2.5 rounded-sm"
+                          style={{ background: n.color ?? 'var(--fg-subtle)' }}
+                        />
                         <span className="flex-1 truncate">{n.displayName}</span>
-                        <span className="text-[12px] text-subtle">{t('count.skills', { count: n.catalogCount })}</span>
+                        <span className="text-[12px] text-subtle">
+                          {t('count.skills', { count: n.catalogCount })}
+                        </span>
                       </Link>
                     </li>
-                    ))}
+                  ))}
               </ul>
             </Card>
           )}

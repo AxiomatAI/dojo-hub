@@ -1,4 +1,4 @@
-import { type PolicyDocument, riskRank, type RiskLevel } from '@dojohub/contract';
+import { type PolicyDocument, type RiskLevel, riskRank } from '@dojohub/contract';
 import { bumpKindBetween } from '@dojohub/core';
 import {
   approvalDecision,
@@ -16,8 +16,8 @@ import {
   versionFile,
 } from '@dojohub/db';
 import {
-  aggregate,
   type AnalyzerResult,
+  aggregate,
   cosine,
   createEmbeddingModel,
   createLanguageModel,
@@ -82,7 +82,11 @@ export async function buildScanConfig(ctx: AppContext, orgId: string): Promise<S
 }
 
 /** Worker job: scan a submitted version, detect duplicates, then apply the namespace policy. */
-export async function processScan(ctx: AppContext, versionId: string, kindHint?: 'new' | 'update' | 'import' | null) {
+export async function processScan(
+  ctx: AppContext,
+  versionId: string,
+  kindHint?: 'new' | 'update' | 'import' | null,
+) {
   const [v] = await ctx.db.select().from(skillVersion).where(eq(skillVersion.id, versionId));
   if (!v || (v.status !== 'submitted' && v.status !== 'scanning')) return;
   const orgId = v.orgId;
@@ -134,7 +138,13 @@ export async function processScan(ctx: AppContext, versionId: string, kindHint?:
       skillVersionId: v.id,
       analyzer: r.analyzer,
       status: r.status,
-      verdict: r.verdict ?? (r.status === 'done' ? (r.findings.some((f) => ['high', 'critical'].includes(f.severity)) ? 'warn' : 'pass') : null),
+      verdict:
+        r.verdict ??
+        (r.status === 'done'
+          ? r.findings.some((f) => ['high', 'critical'].includes(f.severity))
+            ? 'warn'
+            : 'pass'
+          : null),
       riskScore: r.riskScore ?? null,
       findings: r.findings,
       report: r.report ?? null,
@@ -160,11 +170,16 @@ export async function processScan(ctx: AppContext, versionId: string, kindHint?:
   v.riskLevel = verdict.riskLevel;
 
   const llm = results.find((r) => r.analyzer === 'llm' && r.status === 'done');
-  const llmReport = llm?.report as { category?: string; tags?: string[]; update?: { risk: string } } | undefined;
+  const llmReport = llm?.report as
+    | { category?: string; tags?: string[]; update?: { risk: string } }
+    | undefined;
   if (llmReport?.category && !s!.category) {
     await ctx.db
       .update(skill)
-      .set({ category: llmReport.category, tags: s!.tags.length ? s!.tags : (llmReport.tags ?? []).slice(0, 8) })
+      .set({
+        category: llmReport.category,
+        tags: s!.tags.length ? s!.tags : (llmReport.tags ?? []).slice(0, 8),
+      })
       .where(eq(skill.id, s!.id));
   }
 
@@ -172,14 +187,24 @@ export async function processScan(ctx: AppContext, versionId: string, kindHint?:
     ctx,
     orgId,
     'version.scanned',
-    { skill: s!.name, version: v.version, versionId: v.id, riskLevel: verdict.riskLevel, riskScore: verdict.riskScore, verdict: verdict.verdict },
+    {
+      skill: s!.name,
+      version: v.version,
+      versionId: v.id,
+      riskLevel: verdict.riskLevel,
+      riskScore: verdict.riskScore,
+      verdict: verdict.verdict,
+    },
     { namespaceId: ns!.id },
   );
 
   const allFindings = results.flatMap((r) => r.findings);
   let srcUrl: string | null = null;
   if (v.provenance.sourceId) {
-    const [src] = await ctx.db.select({ url: source.url }).from(source).where(eq(source.id, v.provenance.sourceId));
+    const [src] = await ctx.db
+      .select({ url: source.url })
+      .from(source)
+      .where(eq(source.id, v.provenance.sourceId));
     srcUrl = src?.url ?? null;
   }
   const kind = kindHint ?? (prev ? 'update' : v.provenance.sourceId ? 'import' : 'new');
@@ -235,7 +260,9 @@ export async function decide(
         closedAt: new Date(),
       })
       .returning();
-    await ctx.db.insert(approvalDecision).values({ requestId: req!.id, actorType: 'system', decision: 'reject', comment: reason });
+    await ctx.db
+      .insert(approvalDecision)
+      .values({ requestId: req!.id, actorType: 'system', decision: 'reject', comment: reason });
     await transition(ctx, v, 'rejected', reason);
     await afterDecision(ctx, v, 'rejected', reason);
   };
@@ -253,34 +280,52 @@ export async function decide(
         closedAt: new Date(),
       })
       .returning();
-    await ctx.db.insert(approvalDecision).values({ requestId: req!.id, actorType: 'system', decision: 'approve', comment: reason });
+    await ctx.db
+      .insert(approvalDecision)
+      .values({ requestId: req!.id, actorType: 'system', decision: 'approve', comment: reason });
     await transition(ctx, v, 'approved', reason);
     await afterDecision(ctx, v, 'approved', reason);
   };
 
   const g = policyDoc.gates;
-  if (signals.blockedBy.length) return reject(`Blocked by security rules: ${signals.blockedBy.slice(0, 5).join(', ')}`);
-  if (riskRank(facts.risk) > riskRank(g.maxRisk)) return reject(`Risk level ${facts.risk} exceeds the policy maximum (${g.maxRisk})`);
+  if (signals.blockedBy.length)
+    return reject(`Blocked by security rules: ${signals.blockedBy.slice(0, 5).join(', ')}`);
+  if (riskRank(facts.risk) > riskRank(g.maxRisk))
+    return reject(`Risk level ${facts.risk} exceeds the policy maximum (${g.maxRisk})`);
   if (signals.decisionModel === 'deny') return reject('Rejected by the decision model');
   if (g.minClaimsScore > 0 && facts.claimsScore !== null && facts.claimsScore < g.minClaimsScore) {
-    return reject(`Content does not match its description (score ${facts.claimsScore} < ${g.minClaimsScore})`);
+    return reject(
+      `Content does not match its description (score ${facts.claimsScore} < ${g.minClaimsScore})`,
+    );
   }
-  if (g.rejectExactDuplicates && signals.exactDuplicate) return reject('Exact duplicate of an existing skill');
+  if (g.rejectExactDuplicates && signals.exactDuplicate)
+    return reject('Exact duplicate of an existing skill');
 
   const needsHuman = (g.requireLlmVerification && !signals.llmVerified) || signals.decisionModel === 'review';
   if (!needsHuman) {
     if (facts.kind === 'update') {
       const u = policyDoc.updates;
       const majorBlocked = u.majorRequiresManual && facts.major;
-      const llmOk = !u.llmDiffReview || !signals.llmVerified || riskRank(signals.llmUpdateRisk ?? 'none') <= riskRank(u.maxRisk);
+      const llmOk =
+        !u.llmDiffReview ||
+        !signals.llmVerified ||
+        riskRank(signals.llmUpdateRisk ?? 'none') <= riskRank(u.maxRisk);
       if (u.mode === 'auto' && !majorBlocked) return autoApprove('Automatic update approval (policy: auto)');
-      if (u.mode === 'auto_if_low_risk' && !majorBlocked && riskRank(facts.risk) <= riskRank(u.maxRisk) && llmOk) {
+      if (
+        u.mode === 'auto_if_low_risk' &&
+        !majorBlocked &&
+        riskRank(facts.risk) <= riskRank(u.maxRisk) &&
+        llmOk
+      ) {
         return autoApprove(`Low-risk update approved automatically (risk ${facts.risk})`);
       }
     }
     if (facts.kind === 'import' && policyDoc.imports.mode === 'auto_if_trusted' && facts.source) {
-      const trusted = policyDoc.imports.trustedSources.some((t) => facts.source!.startsWith(t) || facts.source!.includes(t));
-      if (trusted && riskRank(facts.risk) <= riskRank('low')) return autoApprove('Trusted source import approved automatically');
+      const trusted = policyDoc.imports.trustedSources.some(
+        (t) => facts.source!.startsWith(t) || facts.source!.includes(t),
+      );
+      if (trusted && riskRank(facts.risk) <= riskRank('low'))
+        return autoApprove('Trusted source import approved automatically');
     }
   }
   const opened = await createApprovalRequest(ctx, { version: v, namespaceId, policyDoc, facts, needsHuman });
@@ -289,7 +334,12 @@ export async function decide(
 }
 
 /** Side effects after a final decision: events and suite re-evaluation. */
-export async function afterDecision(ctx: AppContext, v: VersionRow, status: 'approved' | 'rejected', reason: string | null) {
+export async function afterDecision(
+  ctx: AppContext,
+  v: VersionRow,
+  status: 'approved' | 'rejected',
+  reason: string | null,
+) {
   const [s] = await ctx.db.select().from(skill).where(eq(skill.id, v.skillId));
   await emit(
     ctx,
@@ -340,7 +390,10 @@ async function detectDuplicates(
       ),
     );
   // Keep only the best match per other skill.
-  const best = new Map<string, { id: string; kind: 'exact' | 'near'; score: number; name: string; version: string }>();
+  const best = new Map<
+    string,
+    { id: string; kind: 'exact' | 'near'; score: number; name: string; version: string }
+  >();
   for (const c of candidates) {
     let kind: 'exact' | 'near' | null = null;
     let score = 0;
@@ -353,10 +406,13 @@ async function detectDuplicates(
     }
     if (!kind) continue;
     const prev = best.get(c.skillId);
-    if (!prev || score > prev.score) best.set(c.skillId, { id: c.id, kind, score, name: c.name, version: c.version });
+    if (!prev || score > prev.score)
+      best.set(c.skillId, { id: c.id, kind, score, name: c.name, version: c.version });
   }
   for (const m of best.values()) {
-    await ctx.db.insert(duplicateMatch).values({ orgId: v.orgId, versionId: v.id, otherVersionId: m.id, kind: m.kind, score: m.score });
+    await ctx.db
+      .insert(duplicateMatch)
+      .values({ orgId: v.orgId, versionId: v.id, otherVersionId: m.id, kind: m.kind, score: m.score });
     findings.push({
       analyzer: 'duplicates',
       rule: `duplicate.${m.kind}`,
@@ -374,7 +430,9 @@ export async function processEmbedding(ctx: AppContext, versionId: string) {
   const [cfg] = await ctx.db
     .select()
     .from(llmConfig)
-    .where(and(eq(llmConfig.orgId, v.orgId), eq(llmConfig.purpose, 'embedding'), eq(llmConfig.enabled, true)));
+    .where(
+      and(eq(llmConfig.orgId, v.orgId), eq(llmConfig.purpose, 'embedding'), eq(llmConfig.enabled, true)),
+    );
   if (!cfg) return;
   const files = await loadVersionFiles(ctx, v.id);
   const text = new TextDecoder().decode(files.get('SKILL.md') ?? new Uint8Array()).slice(0, 8000);
@@ -391,14 +449,26 @@ export async function processEmbedding(ctx: AppContext, versionId: string) {
     .values({ versionId: v.id, orgId: v.orgId, model: cfg.model, embedding })
     .onConflictDoUpdate({ target: skillEmbedding.versionId, set: { embedding, model: cfg.model } });
   const others = await ctx.db
-    .select({ versionId: skillEmbedding.versionId, embedding: skillEmbedding.embedding, skillId: skillVersion.skillId })
+    .select({
+      versionId: skillEmbedding.versionId,
+      embedding: skillEmbedding.embedding,
+      skillId: skillVersion.skillId,
+    })
     .from(skillEmbedding)
     .innerJoin(skillVersion, eq(skillVersion.id, skillEmbedding.versionId))
-    .where(and(eq(skillEmbedding.orgId, v.orgId), eq(skillEmbedding.model, cfg.model), ne(skillVersion.skillId, v.skillId)));
+    .where(
+      and(
+        eq(skillEmbedding.orgId, v.orgId),
+        eq(skillEmbedding.model, cfg.model),
+        ne(skillVersion.skillId, v.skillId),
+      ),
+    );
   for (const o of others) {
     const score = cosine(embedding, o.embedding);
     if (score >= SEMANTIC_DUPLICATE_THRESHOLD) {
-      await ctx.db.insert(duplicateMatch).values({ orgId: v.orgId, versionId: v.id, otherVersionId: o.versionId, kind: 'semantic', score });
+      await ctx.db
+        .insert(duplicateMatch)
+        .values({ orgId: v.orgId, versionId: v.id, otherVersionId: o.versionId, kind: 'semantic', score });
     }
   }
 }

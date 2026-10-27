@@ -27,7 +27,10 @@ export function lineOf(text: string, index: number): number {
 export function snippet(text: string, index: number, length = 120): string {
   const start = text.lastIndexOf('\n', index) + 1;
   const end = text.indexOf('\n', index);
-  return text.slice(start, end === -1 ? undefined : end).trim().slice(0, length);
+  return text
+    .slice(start, end === -1 ? undefined : end)
+    .trim()
+    .slice(0, length);
 }
 
 const MIME: Record<string, string> = {
