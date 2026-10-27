@@ -113,6 +113,9 @@ importers:
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
@@ -120,6 +123,9 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
+      '@types/semver':
+        specifier: ^7.8.0
+        version: 7.8.0
       pino-pretty:
         specifier: ^13.2.0
         version: 13.2.0

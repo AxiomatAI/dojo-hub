@@ -26,6 +26,11 @@
     "@better-auth/oauth-provider": "^1.7.14",
     "@better-auth/scim": "^1.7.14",
     "@better-auth/sso": "^1.7.14",
+    "@dojohub/contract": "workspace:*",
+    "@dojohub/core": "workspace:*",
+    "@dojohub/db": "workspace:*",
+    "@dojohub/i18n": "workspace:*",
+    "@dojohub/scanner": "workspace:*",
     "@hono/node-server": "^2.1.5",
     "@hono/zod-openapi": "^1.6.3",
     "@modelcontextprotocol/sdk": "^1.32.2",
@@ -38,15 +43,12 @@
     "pg-boss": "^12.38.0",
     "pino": "^10.4.0",
     "postgres": "^3.4.9",
+    "semver": "^7.8.5",
     "yaml": "^2.9.1",
-    "zod": "^4.6.7",
-    "@dojohub/contract": "workspace:*",
-    "@dojohub/core": "workspace:*",
-    "@dojohub/db": "workspace:*",
-    "@dojohub/scanner": "workspace:*",
-    "@dojohub/i18n": "workspace:*"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/semver": "^7.8.0",
     "pino-pretty": "^13.2.0",
     "tsdown": "^0.23.2",
     "tsx": "^4.23.15"

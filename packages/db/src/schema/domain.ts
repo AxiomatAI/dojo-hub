@@ -523,7 +523,7 @@ export const policy = pgTable(
 export interface Approvers {
   users?: string[];
   groups?: string[];
-  roles?: (OrgRole | NamespaceRole)[];
+  roles?: string[];
 }
 
 export const approvalRequest = pgTable(
