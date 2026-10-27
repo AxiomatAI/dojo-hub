@@ -25,7 +25,6 @@ function AuthFrame({ children, footer }: { children: ReactNode; footer?: ReactNo
         <div className="mb-8 flex items-center justify-center gap-2.5">
           <Logo className="h-8 w-8" />
           <span className="text-lg font-semibold tracking-tight">DojoHub</span>
-          <span className="text-subtle">道場</span>
         </div>
         <div className="animate-in rounded-2xl border border-border bg-panel p-6 shadow-float">
           {children}

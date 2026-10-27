@@ -115,7 +115,7 @@ function Sidebar({ me, onNavigate }: { me: Me; onNavigate?: () => void }) {
         <Logo className="h-6 w-6" />
         <div className="min-w-0">
           <div className="truncate text-[13.5px] font-semibold leading-tight">{me.orgName || 'DojoHub'}</div>
-          <div className="text-[11px] leading-tight text-subtle">DojoHub · 道場</div>
+          <div className="text-[11px] leading-tight text-subtle">DojoHub</div>
         </div>
       </Link>
       <Link
