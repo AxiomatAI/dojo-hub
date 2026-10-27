@@ -1,5 +1,5 @@
 import { fileMapFromRecord } from '@dojohub/core';
-import { approvalRequest, catalogEntry, namespace, namespaceMember, orgMember, skill, user } from '@dojohub/db';
+import { approvalRequest, catalogEntry, namespace, namespaceMember, orgMember, skill, suite, user } from '@dojohub/db';
 import { and, eq } from 'drizzle-orm';
 import { loadActor } from './auth/actor';
 import type { AppContext } from './context';
@@ -10,7 +10,7 @@ import { ingestVersion } from './services/skills';
 import { createSuiteVersion } from './services/suites';
 
 const md = (name: string, description: string, body: string, extra = '') =>
-  `---\nname: ${name}\ndescription: ${description}\nlicense: Apache-2.0\n${extra}---\n\n${body.trim()}\n`;
+  `---\nname: ${name}\ndescription: ${JSON.stringify(description)}\nlicense: Apache-2.0\n${extra}---\n\n${body.trim()}\n`;
 
 const SKILLS: { ns: string; files: Record<string, string>; approve: boolean; team?: string[] }[] = [
   {
@@ -136,7 +136,10 @@ export async function seed(ctx: AppContext) {
     const [ns] = await ctx.db.select().from(namespace).where(eq(namespace.id, nsIds[s.ns]!));
     const name = /name: (.+)/.exec(s.files['SKILL.md']!)![1]!;
     const [exists] = await ctx.db.select().from(skill).where(and(eq(skill.orgId, orgId), eq(skill.name, name)));
-    if (exists) continue;
+    if (exists) {
+      if (exists.latestVersionId) versionIds[name] = exists.latestVersionId;
+      continue;
+    }
     const res = await ingestVersion(ctx, {
       orgId,
       ns: ns!,
@@ -157,7 +160,8 @@ export async function seed(ctx: AppContext) {
       await ctx.db.insert(catalogEntry).values({ orgId, namespaceId: nsIds[team]!, skillId: res.skill.id, level: team === s.ns ? 'required' : 'recommended', addedBy: admin!.id }).onConflictDoNothing();
     }
   }
-  if (versionIds['conventional-commits'] && versionIds['pr-review-checklist']) {
+  const [suiteExists] = await ctx.db.select().from(suite).where(and(eq(suite.orgId, orgId), eq(suite.name, 'engineering-essentials')));
+  if (!suiteExists && versionIds['conventional-commits'] && versionIds['pr-review-checklist']) {
     const [ns] = await ctx.db.select().from(namespace).where(eq(namespace.id, nsIds.platform!));
     await createSuiteVersion(ctx, {
       orgId,

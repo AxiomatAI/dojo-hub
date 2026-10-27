@@ -1,0 +1,46 @@
+# Development dependencies: `docker compose -f deploy/compose/compose.dev.yml up -d`
+# then run `pnpm dev` at the repository root.
+name: dojohub-dev
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: dojohub
+      POSTGRES_PASSWORD: dojohub
+      POSTGRES_DB: dojohub
+    ports: ["${DOJO_PG_PORT:-5432}:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dojohub"]
+      interval: 3s
+      retries: 20
+
+  # Local email capture: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports: ["8025:8025", "1025:1025"]
+
+  # Mock OIDC identity provider with group claims for SSO testing.
+  # Issuer: http://localhost:8090/dojo  (any username/password; add "groups" claim in the login form JSON)
+  oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:2.3.0
+    ports: ["8090:8080"]
+    environment:
+      JSON_CONFIG: >
+        {"interactiveLogin": true, "tokenCallbacks": [{"issuerId": "dojo", "tokenExpiry": 3600,
+          "requestMappings": [{"requestParam": "scope", "match": "*",
+            "claims": {"sub": "$${clientId}", "email": "dev@acme.test", "name": "Dev Developer", "groups": ["platform-maintainers", "security"]}}]}]}
+
+  minio:
+    profiles: ["s3"]
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: dojohub
+      MINIO_ROOT_PASSWORD: dojohub-secret
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio:/data]
+
+volumes:
+  pgdata:
+  minio:
