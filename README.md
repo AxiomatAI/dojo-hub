@@ -4,7 +4,7 @@
 
 # DojoHub
 
-**The governed home for your organization's AI agent skills** — *道場* (*dojo*, “place of practice”).
+**The governed home for your organization's AI agent skills** — _道場_ (_dojo_, “place of practice”).
 
 A self-hosted registry for [Agent Skills](https://agentskills.io) (`SKILL.md`) that works with Claude Code, Cursor, Codex, GitHub Copilot, Gemini CLI and other agents supported by the `skills` CLI.
 Every skill is copied into your registry, scanned for security issues, checked by an LLM (bring your own key) and approved through your team's review path before anyone can install it.
@@ -17,7 +17,7 @@ Every skill is copied into your registry, scanned for security issues, checked b
 
 ## Why DojoHub?
 
-Agent skills contain instructions *and* scripts that run with your agent's permissions. Public directories are unvetted, and installing straight from GitHub gives security teams no say. DojoHub sits in between:
+Agent skills contain instructions _and_ scripts that run with your agent's permissions. Public directories are unvetted, and installing straight from GitHub gives security teams no say. DojoHub sits in between:
 
 - **Developers** submit or import skills and install approved ones with tools they already use: `npx skills`, or the `dojo` CLI.
 - **Security** gets automated scans, an LLM verdict on whether a skill does what it claims, risky-asset flags, a kill switch and an audit log.
@@ -25,20 +25,20 @@ Agent skills contain instructions *and* scripts that run with your agent's permi
 
 ## Features
 
-| | |
-|---|---|
-| 🔐 **SSO** | OIDC and SAML presets for Entra ID, Google Workspace, Okta, Auth0 and Keycloak, plus generic OIDC/SAML. Local accounts are optional. IdP groups arrive through login claims, **SCIM 2.0**, or directory sync (Microsoft Graph, Google Directory) and map to organization and team roles. |
-| 🧭 **Teams & namespaces** | `@team/skill` namespaces with owners, maintainers and reviewers. Team catalogs mark skills and suites as *required*, *recommended* or *optional*. |
-| 📦 **Skills & suites** | Full local copies (scripts, references, assets), immutable semver versions, diffs and provenance. Suites import from `.claude-plugin/marketplace.json`, `plugin.json`, Cursor plugins, or plain `skills/` folders. |
-| 🔁 **Downstream sources** | GitHub, GitLab, any git repository, well-known endpoints, skills.sh, or archive uploads. Sources can sync on a schedule; upstream changes become new candidate versions that go through review. |
-| 🛡️ **Security scan** | Spec validation, static rules (remote script piping, reverse shells, exfiltration, persistence, prompt injection, hidden Unicode), secret detection, dependency checks (OSV, optional), per-file risk flags, and near-duplicate detection. Skill content is never executed. |
-| 🤖 **LLM verification (BYOK)** | Anthropic, OpenAI, Azure OpenAI, Amazon Bedrock, Google, or any OpenAI-compatible endpoint (Ollama, vLLM). Structured verdicts on safety, claim match and quality, plus LLM review of version diffs. An optional **external decision model** can be called over a signed HTTP contract. |
-| ✅ **Approval workflows** | Per-team policies with automatic gates (max risk, blocking findings, claim score), multi-stage approvals by role, IdP group or user, conditional stages (`risk >= "medium" or has_asset("script")`), auto-approval of low-risk updates, trusted-source imports, and separation of duties. |
-| 🚦 **Trust status** | Draft → submitted → scanning → in review → approved, plus rejected, deprecated and **blocked**. Blocking removes a version from every distribution channel immediately. |
-| 🔌 **Integrations** | REST API with OpenAPI 3.1 docs at `/api/docs`, an **MCP server** at `/mcp`, signed **webhooks** (JSON, Slack, Microsoft Teams), and Prometheus metrics at `/metrics`. |
-| 📊 **Dashboards** | Installs over time and by channel, top skills, team adoption, risk distribution and review throughput. |
-| 🌍 **i18n** | English (US and UK) and Polish. More languages can be added as locale folders. |
-| 🚢 **Deployment** | One container image, Docker Compose, or a Helm chart. PostgreSQL with pgvector is the only required dependency. Skill files live on a volume or in any S3-compatible bucket. |
+|                                |                                                                                                                                                                                                                                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔐 **SSO**                     | OIDC and SAML presets for Entra ID, Google Workspace, Okta, Auth0 and Keycloak, plus generic OIDC/SAML. Local accounts are optional. IdP groups arrive through login claims, **SCIM 2.0**, or directory sync (Microsoft Graph, Google Directory) and map to organization and team roles.  |
+| 🧭 **Teams & namespaces**      | `@team/skill` namespaces with owners, maintainers and reviewers. Team catalogs mark skills and suites as _required_, _recommended_ or _optional_.                                                                                                                                         |
+| 📦 **Skills & suites**         | Full local copies (scripts, references, assets), immutable semver versions, diffs and provenance. Suites import from `.claude-plugin/marketplace.json`, `plugin.json`, Cursor plugins, or plain `skills/` folders.                                                                        |
+| 🔁 **Downstream sources**      | GitHub, GitLab, any git repository, well-known endpoints, skills.sh, or archive uploads. Sources can sync on a schedule; upstream changes become new candidate versions that go through review.                                                                                           |
+| 🛡️ **Security scan**           | Spec validation, static rules (remote script piping, reverse shells, exfiltration, persistence, prompt injection, hidden Unicode), secret detection, dependency checks (OSV, optional), per-file risk flags, and near-duplicate detection. Skill content is never executed.               |
+| 🤖 **LLM verification (BYOK)** | Anthropic, OpenAI, Azure OpenAI, Amazon Bedrock, Google, or any OpenAI-compatible endpoint (Ollama, vLLM). Structured verdicts on safety, claim match and quality, plus LLM review of version diffs. An optional **external decision model** can be called over a signed HTTP contract.   |
+| ✅ **Approval workflows**      | Per-team policies with automatic gates (max risk, blocking findings, claim score), multi-stage approvals by role, IdP group or user, conditional stages (`risk >= "medium" or has_asset("script")`), auto-approval of low-risk updates, trusted-source imports, and separation of duties. |
+| 🚦 **Trust status**            | Draft → submitted → scanning → in review → approved, plus rejected, deprecated and **blocked**. Blocking removes a version from every distribution channel immediately.                                                                                                                   |
+| 🔌 **Integrations**            | REST API with OpenAPI 3.1 docs at `/api/docs`, an **MCP server** at `/mcp`, signed **webhooks** (JSON, Slack, Microsoft Teams), and Prometheus metrics at `/metrics`.                                                                                                                     |
+| 📊 **Dashboards**              | Installs over time and by channel, top skills, team adoption, risk distribution and review throughput.                                                                                                                                                                                    |
+| 🌍 **i18n**                    | English (US and UK) and Polish. More languages can be added as locale folders.                                                                                                                                                                                                            |
+| 🚢 **Deployment**              | One container image, Docker Compose, or a Helm chart. PostgreSQL with pgvector is the only required dependency. Skill files live on a volume or in any S3-compatible bucket.                                                                                                              |
 
 ## Quick start
 
