@@ -1,0 +1,10 @@
+{
+  "name": "@dojohub/i18n",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": { ".": "./src/index.ts", "./locales/*": "./locales/*" },
+  "scripts": { "typecheck": "tsc -p .", "check": "tsx src/check.ts", "test": "tsx src/check.ts" },
+  "devDependencies": { "tsx": "^4.23.15" }
+}

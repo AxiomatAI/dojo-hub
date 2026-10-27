@@ -1,0 +1,16 @@
+{
+  "name": "@dojohub/scanner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc -p .", "test": "vitest run" },
+  "dependencies": {
+    "@dojohub/contract": "workspace:*",
+    "@dojohub/core": "workspace:*",
+    "ai": "^7.0.155",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  }
+}
