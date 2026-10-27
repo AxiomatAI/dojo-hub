@@ -345,6 +345,12 @@
     "llmSummary": "Co robi",
     "claimsMatch": "Robi to, co deklaruje",
     "quality": "Jakość instrukcji",
+    "mismatches": "Niezgodności z opisem",
+    "verdicts": {
+      "safe": "bezpieczny",
+      "suspicious": "podejrzany",
+      "malicious": "złośliwy"
+    },
     "llmSkipped": "Weryfikacja LLM nie jest skonfigurowana.",
     "configureLlm": "Skonfiguruj",
     "duplicates": "Możliwe duplikaty",
@@ -658,6 +664,7 @@
     "apiKeySet": "Klucz jest zapisany. Zostaw puste, aby go zachować.",
     "baseUrl": "Bazowy URL",
     "consensus": "Liczba przebiegów (konsensus)",
+    "reportLanguage": "Język raportu",
     "embedding": "Embeddingi (wykrywanie duplikatów semantycznych)",
     "testPrompt": "Wyślij testowy prompt",
     "decisionModel": "Zewnętrzny model decyzyjny",

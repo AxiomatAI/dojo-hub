@@ -5,6 +5,7 @@ import {
   type PolicyDocument,
   WEBHOOK_EVENTS,
 } from '@dojohub/contract';
+import { LOCALE_LABELS, LOCALES } from '@dojohub/i18n';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { CheckCircle2, Plus, RefreshCw, Send, Shield, Trash2 } from 'lucide-react';
@@ -733,6 +734,7 @@ export function LlmForm({
     baseUrl: string;
     apiKey: string;
     consensus: string;
+    language: string;
     enabled: boolean;
   } | null>(null);
   const v = f ?? {
@@ -741,6 +743,7 @@ export function LlmForm({
     baseUrl: existing?.baseUrl ?? '',
     apiKey: '',
     consensus: String(existing?.options.consensus ?? 1),
+    language: String(existing?.options.language ?? 'pl'),
     enabled: existing?.enabled ?? true,
   };
   const set = (patch: Partial<typeof v>) => setF({ ...v, ...patch });
@@ -752,7 +755,7 @@ export function LlmForm({
         model: v.model,
         baseUrl: v.baseUrl || undefined,
         apiKey: v.apiKey || undefined,
-        options: { consensus: Number(v.consensus) },
+        options: { consensus: Number(v.consensus), ...(purpose === 'judge' ? { language: v.language } : {}) },
         enabled: v.enabled,
       }),
     { invalidate: [['admin-llm'], ['setup-status']], success: t('common.done'), onSuccess: () => onDone?.() },
@@ -809,15 +812,26 @@ export function LlmForm({
           />
         </Field>
         {purpose === 'judge' && (
-          <Field label={t('admin.consensus')}>
-            <Select value={v.consensus} onChange={(e) => set({ consensus: e.target.value })}>
-              {['1', '2', '3'].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <>
+            <Field label={t('admin.consensus')}>
+              <Select value={v.consensus} onChange={(e) => set({ consensus: e.target.value })}>
+                {['1', '2', '3'].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={t('admin.reportLanguage')}>
+              <Select value={v.language} onChange={(e) => set({ language: e.target.value })}>
+                {LOCALES.map((l) => (
+                  <option key={l} value={l}>
+                    {LOCALE_LABELS[l]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </>
         )}
         <div className="flex items-end">
           <Switch
