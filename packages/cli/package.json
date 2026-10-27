@@ -1,0 +1,31 @@
+{
+  "name": "@axiomat/dojo",
+  "version": "0.1.0",
+  "description": "dojo — CLI for DojoHub, the self-hosted AI agent skills registry (login, install, sync, submit)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": { "dojo": "./dist/index.mjs" },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=20" },
+  "repository": { "type": "git", "url": "https://github.com/axiomat/dojohub", "directory": "packages/cli" },
+  "keywords": ["agent-skills", "skills", "claude-code", "cursor", "codex", "registry", "dojohub"],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "citty": "^0.2.2",
+    "picocolors": "^1.1.1"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "^2.1.2"
+  },
+  "devDependencies": {
+    "@dojohub/core": "workspace:*",
+    "tsdown": "^0.23.2",
+    "tsx": "^4.23.15"
+  }
+}
