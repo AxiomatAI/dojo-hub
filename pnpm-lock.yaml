@@ -182,6 +182,24 @@ importers:
 
   packages/scanner:
     dependencies:
+      '@ai-sdk/amazon-bedrock':
+        specifier: ^5.0.126
+        version: 5.0.126(zod@4.6.7)
+      '@ai-sdk/anthropic':
+        specifier: ^4.0.90
+        version: 4.0.90(zod@4.6.7)
+      '@ai-sdk/azure':
+        specifier: ^4.0.112
+        version: 4.0.112(zod@4.6.7)
+      '@ai-sdk/google':
+        specifier: ^4.0.107
+        version: 4.0.107(zod@4.6.7)
+      '@ai-sdk/openai':
+        specifier: ^4.0.104
+        version: 4.0.104(zod@4.6.7)
+      '@ai-sdk/openai-compatible':
+        specifier: ^3.0.80
+        version: 3.0.80(zod@4.6.7)
       '@dojohub/contract':
         specifier: workspace:*
         version: link:../contract

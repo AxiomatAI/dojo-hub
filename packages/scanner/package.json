@@ -4,13 +4,24 @@
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
-  "exports": { ".": "./src/index.ts" },
-  "scripts": { "typecheck": "tsc -p .", "test": "vitest run" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
   "dependencies": {
     "@dojohub/contract": "workspace:*",
     "@dojohub/core": "workspace:*",
     "ai": "^7.0.155",
     "yaml": "^2.9.1",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@ai-sdk/anthropic": "^4.0.90",
+    "@ai-sdk/openai": "^4.0.104",
+    "@ai-sdk/openai-compatible": "^3.0.80",
+    "@ai-sdk/azure": "^4.0.112",
+    "@ai-sdk/amazon-bedrock": "^5.0.126",
+    "@ai-sdk/google": "^4.0.107"
   }
 }
