@@ -87,6 +87,11 @@ export function accountRoutes() {
         needsSetup: users === 0,
         orgName: org?.name ?? null,
         orgIconUrl: orgIconPath(org?.iconSha),
+        // The catalog is browsable without a session only when the admin declares the deployment
+        // network-gated (`distribution.anonymousInternal`).
+        anonymousBrowsing: orgId
+          ? await getSetting<boolean>(ctx, orgId, 'distribution.anonymousInternal', true)
+          : false,
         localAuth: ctx.config.DOJO_AUTH_LOCAL ?? true,
         ssoProviders: providers.map((p) => ({ ...p, name: meta[p.providerId]?.name ?? p.providerId })),
         version: VERSION,

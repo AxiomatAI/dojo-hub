@@ -21,7 +21,12 @@ import semver from 'semver';
 import { z } from 'zod';
 import { canManageNamespace, canReadNamespace, canSubmitTo, isSecurityReviewer } from '../auth/permissions';
 import type { AppContext } from '../context';
-import { anonymousAllowed, installCommands } from '../distribution/resolve';
+import {
+  anonymousAllowed,
+  anonymousInternalEnabled,
+  anonymousReadable,
+  installCommands,
+} from '../distribution/resolve';
 import { Api } from '../lib/api';
 import { forbidden, notFound } from '../lib/errors';
 import { actorGroupKeys, canDecideStage, decideRequest } from '../services/approvals';
@@ -95,6 +100,7 @@ export function suiteRoutes() {
       summary: 'List suites',
       tags: ['Suites'],
       query: z.object({ q: z.string().optional(), namespace: z.string().optional() }),
+      public: true,
     },
     async ({ ctx, actor, orgId, query }) => {
       const rows = await ctx.db
@@ -104,8 +110,13 @@ export function suiteRoutes() {
         .where(and(eq(suite.orgId, orgId), isNull(suite.archivedAt)))
         .orderBy(desc(suite.updatedAt));
       const q = query.q?.toLowerCase();
+      const internalEnabled = actor ? false : await anonymousInternalEnabled(ctx, orgId);
       const visible = rows
-        .filter((r) => canReadNamespace(actor, r.namespace))
+        .filter((r) =>
+          actor
+            ? canReadNamespace(actor, r.namespace)
+            : anonymousReadable(r.namespace, internalEnabled) && !!r.suite.publishedVersionId,
+        )
         .filter((r) => !query.namespace || r.namespace.slug === query.namespace)
         .filter(
           (r) =>
@@ -119,17 +130,31 @@ export function suiteRoutes() {
   );
 
   api.op(
-    { method: 'get', path: '/suites/:ns/:name', summary: 'Suite detail', tags: ['Suites'] },
+    {
+      method: 'get',
+      path: '/suites/:ns/:name',
+      summary: 'Suite detail',
+      tags: ['Suites'],
+      public: true,
+    },
     async ({ ctx, actor, orgId, params }) => {
       const [row] = await ctx.db
         .select({ suite, namespace })
         .from(suite)
         .innerJoin(namespace, eq(namespace.id, suite.namespaceId))
         .where(and(eq(suite.orgId, orgId), eq(namespace.slug, params.ns!), eq(suite.name, params.name!)));
-      if (!row || !canReadNamespace(actor, row.namespace)) throw notFound('Suite');
-      const versions = (
+      if (!row) throw notFound('Suite');
+      if (actor) {
+        if (!canReadNamespace(actor, row.namespace)) throw notFound('Suite');
+      } else if (!(await anonymousAllowed(ctx, row.namespace)) || !row.suite.publishedVersionId) {
+        throw notFound('Suite');
+      }
+      const allVersions = (
         await ctx.db.select().from(suiteVersion).where(eq(suiteVersion.suiteId, row.suite.id))
       ).sort((a, b) => semver.rcompare(a.version, b.version));
+      const versions = actor
+        ? allVersions
+        : allVersions.filter((v) => ['approved', 'deprecated'].includes(v.status));
       return {
         ...(await suiteDto(ctx, row, true)),
         versions: versions.map((v) => ({
@@ -142,7 +167,7 @@ export function suiteRoutes() {
           assets: v.assets,
           provenance: v.provenance,
         })),
-        canManage: canManageNamespace(actor, row.namespace),
+        canManage: !!actor && canManageNamespace(actor, row.namespace),
       };
     },
   );

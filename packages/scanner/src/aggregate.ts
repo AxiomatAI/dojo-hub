@@ -11,6 +11,11 @@ export function levelForScore(score: number): RiskLevel {
   return 'critical';
 }
 
+/** Map a judge level (1–5) onto the 0–100 claims score used by policy gates. */
+export function levelToScore(level: number): number {
+  return Math.min(100, Math.max(0, Math.round(level * 20)));
+}
+
 /** Combine analyzer results into a single risk score/level. Policy gates are applied by the server. */
 export function aggregate(results: AnalyzerResult[], blockOn: string[] = []): Verdict {
   const findings = results.flatMap((r) => r.findings);
@@ -41,8 +46,14 @@ export function aggregate(results: AnalyzerResult[], blockOn: string[] = []): Ve
       blockOn.some((b) => f.rule === b || f.rule.startsWith(`${b}.`) || f.rule.split('.')[0] === b),
     )
     .map((f) => f.rule);
-  const claimsScore =
-    (llm?.report as { claimsMatch?: { score?: number } } | undefined)?.claimsMatch?.score ?? null;
+  const claims = (llm?.report as { claimsMatch?: { level?: number; score?: number } } | undefined)
+    ?.claimsMatch;
+  // Judge levels are 1–5 (mapped to 20–100); older reports stored 0–100 scores directly.
+  const claimsScore = claims
+    ? typeof claims.level === 'number'
+      ? levelToScore(claims.level)
+      : (claims.score ?? null)
+    : null;
   const verdict =
     blockedBy.length || riskLevel === 'critical' || llmVerdict === 'malicious' || dmDecision === 'deny'
       ? 'fail'

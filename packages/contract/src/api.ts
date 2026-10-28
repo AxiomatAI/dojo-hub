@@ -470,6 +470,8 @@ export interface SetupStatus {
   needsSetup: boolean;
   orgName: string | null;
   orgIconUrl: string | null;
+  /** Serve the catalog without a session (network-gated deployments). */
+  anonymousBrowsing: boolean;
   localAuth: boolean;
   ssoProviders: { providerId: string; domain: string; name: string }[];
   version: string;

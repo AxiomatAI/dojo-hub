@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { InstallPanel, SkillRow, StatusPill } from '../components/dojo';
 import { PolicyEditor } from '../components/policy-editor';
-import { isAdmin, useMe } from '../components/shell';
+import { isAdmin, useOptionalMe } from '../components/shell';
 import {
   Avatar,
   Badge,
@@ -159,7 +159,7 @@ const slugify = (s: string) =>
 
 export function TeamsPage() {
   const { t } = useTranslation();
-  const me = useMe();
+  const me = useOptionalMe();
   const [open, setOpen] = useState(false);
   const q = useQuery({ queryKey: ['namespaces'], queryFn: () => api.get<NamespaceDto[]>('namespaces') });
   return (
@@ -169,6 +169,7 @@ export function TeamsPage() {
         title={t('teams.title')}
         description={t('teams.subtitle')}
         actions={
+          me &&
           isAdmin(me) && (
             <Button variant="primary" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setOpen(true)}>
               {t('teams.new')}
@@ -200,7 +201,7 @@ export function TeamsPage() {
               {n.description && <p className="mt-3 line-clamp-2 text-[12.5px] text-muted">{n.description}</p>}
               <div className="mt-3 flex gap-4 text-[12px] text-subtle">
                 <span>{t('count.skills', { count: n.catalogCount })}</span>
-                <span>{t('count.members', { count: n.memberCount })}</span>
+                {me && <span>{t('count.members', { count: n.memberCount })}</span>}
               </div>
             </Card>
           </Link>
@@ -445,6 +446,8 @@ export function TeamDetailPage() {
   const { slug } = useParams({ from: '/app/teams/$slug' });
   const search = useSearch({ from: '/app/teams/$slug' }) as { tab?: string };
   const navigate = useNavigate();
+  const me = useOptionalMe();
+  const guest = !me;
   const [adding, setAdding] = useState(false);
   const team = useQuery({
     queryKey: ['namespace', slug],
@@ -460,7 +463,17 @@ export function TeamDetailPage() {
   if (team.isLoading) return <Skeleton className="h-64" />;
   const d = team.data;
   if (!d) return <EmptyState title={t('common.notFound')} />;
-  const tab = search.tab ?? 'catalog';
+  // Members and policy are organisation data: anonymous visitors only get the catalog.
+  const tab = guest ? 'catalog' : (search.tab ?? 'catalog');
+  const tabs = [
+    { value: 'catalog', label: t('teams.catalog'), count: d.catalog.length },
+    ...(guest
+      ? []
+      : [
+          { value: 'members', label: t('common.members'), count: d.memberCount },
+          { value: 'policy', label: t('teams.policy') },
+        ]),
+  ];
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start gap-4">
@@ -489,11 +502,7 @@ export function TeamDetailPage() {
         onValueChange={(v) =>
           navigate({ to: '/teams/$slug', params: { slug }, search: { tab: v }, replace: true })
         }
-        tabs={[
-          { value: 'catalog', label: t('teams.catalog'), count: d.catalog.length },
-          { value: 'members', label: t('common.members'), count: d.memberCount },
-          { value: 'policy', label: t('teams.policy') },
-        ]}
+        tabs={tabs}
       >
         <TabPanel value="catalog">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
