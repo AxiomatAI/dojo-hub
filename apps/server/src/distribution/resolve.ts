@@ -9,19 +9,38 @@ import { installableSuiteVersion, suiteMembers } from '../services/suites';
 
 export type NamespaceRow = typeof namespace.$inferSelect;
 
+/** The admin's network-gate toggle: whether internal namespaces are served without credentials. */
+export async function anonymousInternalEnabled(ctx: AppContext, orgId: string): Promise<boolean> {
+  return getSetting<boolean>(ctx, orgId, 'distribution.anonymousInternal', true);
+}
+
+/**
+ * Static read rule for a namespace seen by a caller without credentials: public always, private
+ * never, internal only when the deployment is declared network-gated. Resolving the toggle once
+ * keeps list endpoints at a single settings query.
+ */
+export function anonymousReadable(ns: Pick<NamespaceRow, 'visibility'>, internalEnabled: boolean): boolean {
+  if (ns.visibility === 'public') return true;
+  if (ns.visibility === 'private') return false;
+  return internalEnabled;
+}
+
 /**
  * Whether a namespace can be served without credentials. Public always; internal only when the
  * admin declares the deployment network-gated (default true for self-hosted installs).
  */
 export async function anonymousAllowed(ctx: AppContext, ns: NamespaceRow): Promise<boolean> {
-  if (ns.visibility === 'public') return true;
-  if (ns.visibility === 'private') return false;
-  return getSetting<boolean>(ctx, ns.orgId, 'distribution.anonymousInternal', true);
+  return anonymousReadable(ns, await anonymousInternalEnabled(ctx, ns.orgId));
+}
+
+/** Read access for a caller that may be anonymous: credentials decide first, then the toggle. */
+export async function canReadWith(ctx: AppContext, actor: Actor | null, ns: NamespaceRow): Promise<boolean> {
+  if (actor) return canReadNamespace(actor, ns);
+  return anonymousAllowed(ctx, ns);
 }
 
 export async function canDownload(ctx: AppContext, actor: Actor | null, ns: NamespaceRow): Promise<boolean> {
-  if (actor) return canReadNamespace(actor, ns);
-  return anonymousAllowed(ctx, ns);
+  return canReadWith(ctx, actor, ns);
 }
 
 export interface Bundle {

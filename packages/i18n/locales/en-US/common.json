@@ -64,6 +64,7 @@
     "created": "Created",
     "updated": "Updated",
     "installs": "Installs",
+    "browseOnly": "Read-only browsing",
     "files": "Files",
     "size": "Size",
     "actions": "Actions",

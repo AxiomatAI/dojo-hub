@@ -9,7 +9,13 @@ import { catalogEntry, namespace, namespaceMember, policy, skill, suite, user } 
 import { and, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { canAdminNamespace, canManageNamespace, isOrgAdmin } from '../auth/permissions';
-import { anonymousAllowed, installCommands, teamBundle } from '../distribution/resolve';
+import {
+  anonymousAllowed,
+  anonymousInternalEnabled,
+  anonymousReadable,
+  installCommands,
+  teamBundle,
+} from '../distribution/resolve';
 import { Api } from '../lib/api';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors';
 import { audit } from '../services/audit';
@@ -21,7 +27,13 @@ export function namespaceRoutes() {
   const api = new Api();
 
   api.op(
-    { method: 'get', path: '/namespaces', summary: 'List teams and namespaces', tags: ['Teams'] },
+    {
+      method: 'get',
+      path: '/namespaces',
+      summary: 'List teams and namespaces',
+      tags: ['Teams'],
+      public: true,
+    },
     async ({ ctx, actor, orgId }) => listNamespaces(ctx, actor, orgId),
   );
 
@@ -60,13 +72,24 @@ export function namespaceRoutes() {
   );
 
   api.op(
-    { method: 'get', path: '/namespaces/:slug', summary: 'Team overview with its catalog', tags: ['Teams'] },
+    {
+      method: 'get',
+      path: '/namespaces/:slug',
+      summary: 'Team overview with its catalog',
+      tags: ['Teams'],
+      public: true,
+    },
     async ({ ctx, actor, orgId, params }) => {
       const ns = await getReadableNamespace(ctx, actor, orgId, params.slug!);
       const all = await listNamespaces(ctx, actor, orgId);
       const dto = all.find((n) => n.id === ns.id)!;
       const entries = await ctx.db.select().from(catalogEntry).where(eq(catalogEntry.namespaceId, ns.id));
       const skillIds = entries.map((e) => e.skillId).filter((x): x is string => !!x);
+      const internalEnabled = actor ? false : await anonymousInternalEnabled(ctx, orgId);
+      // Catalog entries can point at skills and suites owned by other teams: without credentials
+      // each of them is filtered by its own namespace's visibility, like the distribution does.
+      const anonVisible = (row: { namespace: typeof namespace.$inferSelect }) =>
+        anonymousReadable(row.namespace, internalEnabled);
       const skillRows = skillIds.length
         ? await ctx.db
             .select({ skill, namespace })
@@ -76,7 +99,9 @@ export function namespaceRoutes() {
         : [];
       const summaries = await toSkillSummaries(
         ctx,
-        skillRows.filter((r) => skillIds.includes(r.skill.id)),
+        skillRows.filter(
+          (r) => skillIds.includes(r.skill.id) && (actor || (anonVisible(r) && !!r.skill.publishedVersionId)),
+        ),
       );
       const suiteIds = entries.map((e) => e.suiteId).filter((x): x is string => !!x);
       const suiteRows = suiteIds.length
@@ -86,41 +111,53 @@ export function namespaceRoutes() {
               .from(suite)
               .innerJoin(namespace, eq(namespace.id, suite.namespaceId))
               .where(eq(suite.orgId, orgId))
-          ).filter((r) => suiteIds.includes(r.suite.id))
+          ).filter(
+            (r) =>
+              suiteIds.includes(r.suite.id) && (actor || (anonVisible(r) && !!r.suite.publishedVersionId)),
+          )
         : [];
+      const visibleIds = new Set(summaries.map((s) => s.id));
+      const visibleSuites = new Set(suiteRows.map((r) => r.suite.id));
       const bundle = await teamBundle(ctx, ns);
+      const installable = actor ? bundle : bundle.filter((b) => anonVisible(b));
       return {
         ...dto,
-        catalog: entries.map((e) => ({
-          id: e.id,
-          level: e.level,
-          pinnedVersion: e.pinnedVersion,
-          note: e.note,
-          skill: e.skillId ? (summaries.find((s) => s.id === e.skillId) ?? null) : null,
-          suite: e.suiteId
-            ? (() => {
-                const r = suiteRows.find((x) => x.suite.id === e.suiteId);
-                return r
-                  ? {
-                      id: r.suite.id,
-                      name: r.suite.name,
-                      displayName: r.suite.displayName,
-                      namespace: r.namespace.slug,
-                      status: r.suite.status,
-                      description: r.suite.description,
-                    }
-                  : null;
-              })()
-            : null,
-        })),
-        installableCount: bundle.length,
+        catalog: entries
+          .filter(
+            (e) =>
+              (e.skillId ? visibleIds.has(e.skillId) : false) ||
+              (e.suiteId ? visibleSuites.has(e.suiteId) : false),
+          )
+          .map((e) => ({
+            id: e.id,
+            level: e.level,
+            pinnedVersion: e.pinnedVersion,
+            note: e.note,
+            skill: e.skillId ? (summaries.find((s) => s.id === e.skillId) ?? null) : null,
+            suite: e.suiteId
+              ? (() => {
+                  const r = suiteRows.find((x) => x.suite.id === e.suiteId);
+                  return r
+                    ? {
+                        id: r.suite.id,
+                        name: r.suite.name,
+                        displayName: r.suite.displayName,
+                        namespace: r.namespace.slug,
+                        status: r.suite.status,
+                        description: r.suite.description,
+                      }
+                    : null;
+                })()
+              : null,
+          })),
+        installableCount: installable.length,
         install: installCommands(
           ctx.config.DOJO_BASE_URL,
           { kind: 'team', ns: ns.slug },
           await anonymousAllowed(ctx, ns),
         ),
-        canManage: canManageNamespace(actor, ns),
-        canAdmin: canAdminNamespace(actor, ns),
+        canManage: !!actor && canManageNamespace(actor, ns),
+        canAdmin: !!actor && canAdminNamespace(actor, ns),
       };
     },
   );

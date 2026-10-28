@@ -3,6 +3,7 @@ import { catalogEntry, namespace, namespaceMember, skill } from '@dojohub/db';
 import { and, count, eq, isNull } from 'drizzle-orm';
 import { type Actor, canReadNamespace } from '../auth/permissions';
 import type { AppContext } from '../context';
+import { anonymousInternalEnabled, anonymousReadable, canReadWith } from '../distribution/resolve';
 import { forbidden, notFound } from '../lib/errors';
 
 export type NamespaceRow = typeof namespace.$inferSelect;
@@ -29,7 +30,7 @@ export async function getReadableNamespace(
   slug: string,
 ) {
   const ns = await getNamespace(ctx, orgId, slug);
-  if (!canReadNamespace(actor, ns)) throw actor ? forbidden() : notFound('Namespace');
+  if (!(await canReadWith(ctx, actor, ns))) throw actor ? forbidden() : notFound('Namespace');
   return ns;
 }
 
@@ -39,7 +40,10 @@ export async function listNamespaces(ctx: AppContext, actor: Actor | null, orgId
     .from(namespace)
     .where(and(eq(namespace.orgId, orgId), isNull(namespace.archivedAt)))
     .orderBy(namespace.kind, namespace.displayName);
-  const visible = rows.filter((r) => canReadNamespace(actor, r));
+  const internalEnabled = actor ? false : await anonymousInternalEnabled(ctx, orgId);
+  const visible = rows.filter((r) =>
+    actor ? canReadNamespace(actor, r) : anonymousReadable(r, internalEnabled),
+  );
   const out = [];
   for (const ns of visible) {
     const [[m], [s], [c]] = await Promise.all([
@@ -58,7 +62,8 @@ export async function listNamespaces(ctx: AppContext, actor: Actor | null, orgId
       description: ns.description,
       visibility: ns.visibility,
       color: ns.color,
-      memberCount: m?.n ?? 0,
+      // Membership is organisation data: only authenticated callers see it.
+      memberCount: actor ? (m?.n ?? 0) : 0,
       skillCount: s?.n ?? 0,
       catalogCount: c?.n ?? 0,
       myRole: (actor?.ns.get(ns.id) as NamespaceRole | undefined) ?? null,

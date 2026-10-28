@@ -212,6 +212,7 @@ export function dashboardRoutes() {
       path: '/skills/:name/stats',
       summary: 'Install statistics for a skill',
       tags: ['Dashboards'],
+      public: true,
       query: z.object({ days: z.coerce.number().int().min(7).max(365).default(90) }),
     },
     async ({ ctx, actor, orgId, params, query }) => {

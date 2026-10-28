@@ -35,6 +35,7 @@ import {
   SkillGlyph,
   StatusPill,
 } from '../components/dojo';
+import { useOptionalMe } from '../components/shell';
 import {
   Badge,
   Button,
@@ -333,6 +334,8 @@ export function SkillDetailPage() {
   const { name } = useParams({ from: '/app/skills/$name' });
   const search = useSearch({ from: '/app/skills/$name' }) as { tab?: string };
   const navigate = useNavigate();
+  const me = useOptionalMe();
+  const guest = !me;
   const tab = search.tab ?? 'overview';
   const [addTeam, setAddTeam] = useState(false);
   const skill = useQuery({
@@ -376,7 +379,7 @@ export function SkillDetailPage() {
             <code className="font-mono">{s.name}</code>
             {s.publishedVersion && <span>v{s.publishedVersion}</span>}
             <span>{t('count.installs', { count: s.installCount })}</span>
-            {s.source && (
+            {s.source && !guest && (
               <Link to="/sources/$id" params={{ id: s.source.id }} className="hover:text-fg">
                 {t('skills.importedFrom')} {s.source.name}
               </Link>
@@ -392,9 +395,11 @@ export function SkillDetailPage() {
               <Button icon={<Plus className="h-3.5 w-3.5" />}>{t('skills.newVersion')}</Button>
             </Link>
           )}
-          <Button icon={<Users className="h-3.5 w-3.5" />} onClick={() => setAddTeam(true)}>
-            {t('skills.addToTeam')}
-          </Button>
+          {!guest && (
+            <Button icon={<Users className="h-3.5 w-3.5" />} onClick={() => setAddTeam(true)}>
+              {t('skills.addToTeam')}
+            </Button>
+          )}
           {s.publishedVersion && <InstallMenu install={s.install} />}
         </div>
       </div>
@@ -527,21 +532,27 @@ export function SkillDetailPage() {
             <CardHeader
               title={t('skills.tabs.versions')}
               actions={
-                <Button
-                  size="sm"
-                  disabled={compare.length !== 2}
-                  icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
-                  onClick={() => {
-                    const [a, b] = [...compare].sort(
-                      (x, y) =>
-                        s.versions.findIndex((v) => v.version === y) -
-                        s.versions.findIndex((v) => v.version === x),
-                    );
-                    void navigate({ to: '/skills/$name/diff', params: { name }, search: { from: a, to: b } });
-                  }}
-                >
-                  {t('skills.compare')}
-                </Button>
+                guest ? undefined : (
+                  <Button
+                    size="sm"
+                    disabled={compare.length !== 2}
+                    icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
+                    onClick={() => {
+                      const [a, b] = [...compare].sort(
+                        (x, y) =>
+                          s.versions.findIndex((v) => v.version === y) -
+                          s.versions.findIndex((v) => v.version === x),
+                      );
+                      void navigate({
+                        to: '/skills/$name/diff',
+                        params: { name },
+                        search: { from: a, to: b },
+                      });
+                    }}
+                  >
+                    {t('skills.compare')}
+                  </Button>
+                )
               }
             />
             {s.versions.map((v) => (
@@ -549,17 +560,19 @@ export function SkillDetailPage() {
                 key={v.id}
                 className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0 hover:bg-panel-hover"
               >
-                <input
-                  type="checkbox"
-                  aria-label={`compare ${v.version}`}
-                  checked={compare.includes(v.version)}
-                  onChange={(e) =>
-                    setCompare((c) =>
-                      e.target.checked ? [...c, v.version].slice(-2) : c.filter((x) => x !== v.version),
-                    )
-                  }
-                  className="accent-[var(--accent)]"
-                />
+                {!guest && (
+                  <input
+                    type="checkbox"
+                    aria-label={`compare ${v.version}`}
+                    checked={compare.includes(v.version)}
+                    onChange={(e) =>
+                      setCompare((c) =>
+                        e.target.checked ? [...c, v.version].slice(-2) : c.filter((x) => x !== v.version),
+                      )
+                    }
+                    className="accent-[var(--accent)]"
+                  />
+                )}
                 <GitCommit className="h-4 w-4 text-subtle" />
                 <Link
                   to="/skills/$name/versions/$version"
@@ -609,6 +622,7 @@ export function VersionPage() {
   const { t } = useTranslation();
   const { name, version } = useParams({ from: '/app/skills/$name/versions/$version' });
   const search = useSearch({ from: '/app/skills/$name/versions/$version' }) as { file?: string };
+  const me = useOptionalMe();
   const [tab, setTab] = useState('files');
   const [file, setFile] = useState<string | undefined>(search.file);
   const v = useVersion(name, version);
@@ -629,7 +643,7 @@ export function VersionPage() {
         </h1>
         <StatusPill status={d.status} />
         <RiskBadge level={d.riskLevel} score={d.riskScore} />
-        {d.review && (
+        {d.review && me && (
           <Link to="/reviews/$id" params={{ id: d.review.id }} className="text-[12.5px] text-accent">
             {t('reviews.stages')} →
           </Link>

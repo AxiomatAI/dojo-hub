@@ -7,7 +7,13 @@ import {
   canSubmitTo,
   isOrgAdmin,
 } from '../src/auth/permissions';
+import { anonymousReadable } from '../src/distribution/resolve';
 import { SecretBox, userCode } from '../src/lib/crypto';
+import { accountRoutes } from '../src/routes/account';
+import { dashboardRoutes } from '../src/routes/dashboard';
+import { namespaceRoutes } from '../src/routes/namespaces';
+import { suiteRoutes } from '../src/routes/reviews';
+import { skillRoutes } from '../src/routes/skills';
 import { canDecideStage } from '../src/services/approvals';
 import { resolveGitSource } from '../src/services/fetchers';
 import { decodeJwtPayload, extractGroupClaims } from '../src/services/groups';
@@ -163,5 +169,59 @@ describe('source URLs', () => {
     expect(resolveGitSource('skills_sh', 'https://skills.sh/vercel-labs/agent-skills')).toMatchObject({
       cloneUrl: 'https://github.com/vercel-labs/agent-skills.git',
     });
+  });
+});
+
+type Doc = { paths: Record<string, Record<string, unknown>> };
+const document = (routes: {
+  openapi: (info: { title: string; version: string; serverUrl: string }) => Doc;
+}): Doc => routes.openapi({ title: 'test', version: '0.0.0', serverUrl: 'https://hub.example' });
+const paths = () => ({
+  ...document(accountRoutes()).paths,
+  ...document(skillRoutes()).paths,
+  ...document(namespaceRoutes()).paths,
+  ...document(suiteRoutes()).paths,
+  ...document(dashboardRoutes()).paths,
+});
+const securityOf = (path: string, method: string) =>
+  (paths()[path]?.[method] as { security?: unknown[] } | undefined)?.security;
+const isPublic = (path: string, method = 'get') => expect(securityOf(path, method)).toEqual([]);
+const needsAuth = (path: string, method = 'get') =>
+  expect(securityOf(path, method)).toEqual([{ bearer: [] }, { session: [] }]);
+
+describe('anonymous browsing', () => {
+  it('serves public namespaces always and internal ones only when network-gated', () => {
+    expect(anonymousReadable({ visibility: 'public' }, false)).toBe(true);
+    expect(anonymousReadable({ visibility: 'internal' }, true)).toBe(true);
+    expect(anonymousReadable({ visibility: 'internal' }, false)).toBe(false);
+    expect(anonymousReadable({ visibility: 'private' }, true)).toBe(false);
+  });
+
+  it('exposes the catalog reads and the browsing flag without a session', () => {
+    isPublic('/setup/status');
+    isPublic('/skills');
+    isPublic('/skills/{name}');
+    isPublic('/skills/{name}/versions/{version}');
+    isPublic('/skills/{name}/versions/{version}/files/*');
+    isPublic('/skills/{name}/versions/{version}/download');
+    isPublic('/skills/{name}/stats');
+    isPublic('/namespaces');
+    isPublic('/namespaces/{slug}');
+    isPublic('/suites');
+    isPublic('/suites/{ns}/{name}');
+  });
+
+  it('keeps writes, governance reads and unpublished views behind a credential', () => {
+    needsAuth('/skills', 'post');
+    needsAuth('/skills/upload', 'post');
+    needsAuth('/skills/{name}', 'patch');
+    needsAuth('/skills/{name}', 'delete');
+    needsAuth('/skills/{name}/diff');
+    needsAuth('/skills/{name}/versions/{version}/submit', 'post');
+    needsAuth('/namespaces', 'post');
+    needsAuth('/namespaces/{slug}/members');
+    needsAuth('/namespaces/{slug}/policy');
+    needsAuth('/namespaces/{slug}/catalog', 'post');
+    needsAuth('/suites', 'post');
   });
 });
