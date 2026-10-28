@@ -12,3 +12,4 @@ test-results
 .DS_Store
 *.tsbuildinfo
 .claude/
+.playwright-mcp/

@@ -1,12 +1,15 @@
 import type { DuplicateDto, ScanRunDto, VersionFileDto } from '@dojohub/contract';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Bot, Copy, Download, FileSearch, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { api } from '../lib/api';
+import { errorMessage } from '../lib/hooks';
 import { formatBytes } from '../lib/utils';
 import { CodeView, FileTree, FindingList, Markdown, RiskFlags, ScoreBar } from './dojo';
-import { Badge, Card, CardHeader, EmptyState, Spinner } from './ui';
+import { Badge, Button, Card, CardHeader, EmptyState, Spinner } from './ui';
 
 export interface VersionDetail {
   id: string;
@@ -17,6 +20,8 @@ export interface VersionDetail {
   duplicates: DuplicateDto[];
   riskLevel: string | null;
   riskScore: number | null;
+  /** True when an enabled judge model is configured for this org. */
+  llmConfigured?: boolean;
 }
 
 export function FilesBrowser({
@@ -116,6 +121,24 @@ export function SecurityReport({
   onFile?: (p: string) => void;
 }) {
   const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [running, setRunning] = useState(false);
+  const runLlmCheck = async () => {
+    setRunning(true);
+    try {
+      const r = await api.post<{ status: string; error?: string | null }>(
+        `skills/${skill}/versions/${detail.version}/llm-check`,
+      );
+      for (const key of [['version', skill, detail.version], ['skill', skill], ['skills']])
+        await qc.invalidateQueries({ queryKey: key });
+      if (r.status === 'done') toast.success(t('security.llmDone'));
+      else toast.error(r.error ?? t('security.llmFailed'));
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setRunning(false);
+    }
+  };
   if (['submitted', 'scanning'].includes(detail.status) && !detail.scans.length) {
     return (
       <Card className="flex items-center gap-3 p-5 text-muted">
@@ -197,10 +220,27 @@ export function SecurityReport({
           </div>
         ) : (
           <div className="flex items-center justify-between gap-4 px-4 py-3 text-[13px] text-muted">
-            {llm?.error ?? t('security.llmSkipped')}
-            <Link to="/admin" search={{ tab: 'verification' }} className="text-accent">
-              {t('security.configureLlm')}
-            </Link>
+            <span className="min-w-0 truncate">
+              {llm?.status === 'error' && llm.error
+                ? llm.error
+                : detail.llmConfigured
+                  ? t('security.llmNotRun')
+                  : t('security.llmSkipped')}
+            </span>
+            {detail.llmConfigured ? (
+              <Button
+                size="sm"
+                icon={<Bot className="h-3.5 w-3.5" />}
+                loading={running}
+                onClick={runLlmCheck}
+              >
+                {llm && llm.status !== 'skipped' ? t('security.runLlmAgain') : t('security.runLlm')}
+              </Button>
+            ) : (
+              <Link to="/admin" search={{ tab: 'verification' }} className="shrink-0 text-accent">
+                {t('security.configureLlm')}
+              </Link>
+            )}
           </div>
         )}
       </Card>

@@ -45,6 +45,7 @@ import { audit } from '../services/audit';
 import { toSkillSummaries, toVersionDto, usersById } from '../services/dto';
 import { emit } from '../services/events';
 import { getNamespace } from '../services/namespaces';
+import { hasJudgeConfig, runLlmCheck } from '../services/pipeline';
 import { ingestVersion, loadArchive, loadVersionFiles, submitVersion, transition } from '../services/skills';
 import { recordInstall } from '../services/stats';
 
@@ -499,6 +500,7 @@ export function skillRoutes() {
         })),
         duplicates: dups,
         review: review ?? null,
+        llmConfigured: await hasJudgeConfig(ctx, orgId),
         canSubmit:
           ['draft', 'rejected'].includes(v.status) &&
           (v.submittedBy === actor.userId || canManageNamespace(actor, row.namespace)),
@@ -684,6 +686,31 @@ export function skillRoutes() {
         { singletonKey: `scan:${v.id}:${Date.now()}` },
       );
       return { ok: true };
+    },
+  );
+
+  api.op(
+    {
+      method: 'post',
+      path: '/skills/:name/versions/:version/llm-check',
+      summary: 'Run the LLM verification for a version now',
+      tags: ['Skills'],
+    },
+    async ({ ctx, actor, orgId, params }) => {
+      const row = await loadSkill(ctx, actor, orgId, params.name!);
+      if (!isSecurityReviewer(actor) && !canManageNamespace(actor, row.namespace)) throw forbidden();
+      const v = await loadVersionRow(ctx, row.skill.id, params.version!);
+      if (!(await hasJudgeConfig(ctx, orgId)))
+        throw badRequest(
+          'LLM verification is not configured — add a judge model in Administration → Verification',
+        );
+      const result = await runLlmCheck(ctx, v);
+      return {
+        ok: result.status === 'done',
+        status: result.status,
+        error: result.error ?? null,
+        model: result.model ?? null,
+      };
     },
   );
 
