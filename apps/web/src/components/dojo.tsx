@@ -213,7 +213,7 @@ export function SkillRow({ skill, right }: { skill: SkillSummaryDto; right?: Rea
     <Link
       to="/skills/$name"
       params={{ name: skill.name }}
-      className="group flex items-center gap-3 border-b border-border px-4 py-2.5 transition-colors last:border-b-0 hover:bg-panel-hover"
+      className="@container group flex items-center gap-3 border-b border-border px-4 py-2.5 transition-colors last:border-b-0 hover:bg-panel-hover"
     >
       <SkillGlyph name={skill.name} />
       <div className="min-w-0 flex-1">
@@ -223,7 +223,7 @@ export function SkillRow({ skill, right }: { skill: SkillSummaryDto; right?: Rea
         </div>
         <p className="truncate text-[12.5px] text-muted">{skill.summary}</p>
       </div>
-      <div className="hidden items-center gap-3 md:flex">
+      <div className="hidden shrink-0 items-center gap-3 @4xl:flex">
         <NamespaceChip slug={skill.namespace} />
         {(skill.publishedVersion ?? skill.latestVersion) && (
           <code className="font-mono text-[11.5px] text-subtle">
@@ -236,9 +236,9 @@ export function SkillRow({ skill, right }: { skill: SkillSummaryDto; right?: Rea
         </span>
         <RiskBadge level={skill.riskLevel} />
       </div>
-      <StatusPill status={skill.status} withHelp={false} />
+      <StatusPill status={skill.status} withHelp={false} className="shrink-0" />
       {right}
-      <span className="hidden w-20 text-right text-[12px] text-subtle lg:inline">
+      <span className="hidden w-20 shrink-0 text-right text-[12px] text-subtle @5xl:inline">
         {relativeTime(skill.updatedAt)}
       </span>
     </Link>
