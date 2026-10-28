@@ -5,14 +5,22 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Logo } from '../components/shell';
+import { Logo, OrgLogo } from '../components/shell';
 import { Button, Field, Input, Select, Spinner } from '../components/ui';
 import { api } from '../lib/api';
 import { authClient } from '../lib/auth';
 import { errorMessage } from '../lib/hooks';
 import { setLocale } from '../lib/i18n';
 
-function AuthFrame({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+function AuthFrame({
+  children,
+  footer,
+  iconUrl,
+}: {
+  children: ReactNode;
+  footer?: ReactNode;
+  iconUrl?: string | null;
+}) {
   return (
     <div className="relative flex min-h-full items-center justify-center overflow-hidden px-4 py-12">
       <div
@@ -23,7 +31,7 @@ function AuthFrame({ children, footer }: { children: ReactNode; footer?: ReactNo
       />
       <div className="relative w-full max-w-[400px]">
         <div className="mb-8 flex items-center justify-center gap-2.5">
-          <Logo className="h-8 w-8" />
+          {iconUrl ? <OrgLogo iconUrl={iconUrl} className="h-8 w-8" /> : <Logo className="h-8 w-8" />}
           <span className="text-lg font-semibold tracking-tight">DojoHub</span>
         </div>
         <div className="animate-in rounded-2xl border border-border bg-panel p-6 shadow-float">
@@ -107,7 +115,7 @@ export function LoginPage() {
   }
   const providers = status.data?.ssoProviders ?? [];
   return (
-    <AuthFrame footer={<LanguagePicker />}>
+    <AuthFrame footer={<LanguagePicker />} iconUrl={status.data?.orgIconUrl}>
       <h1 className="text-[17px] font-semibold">
         {t('auth.signInTitle', { org: status.data?.orgName ?? 'DojoHub' })}
       </h1>

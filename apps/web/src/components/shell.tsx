@@ -13,6 +13,7 @@ import {
   Home,
   Inbox,
   Languages,
+  LogIn,
   LogOut,
   Menu as MenuIcon,
   Monitor,
@@ -33,13 +34,27 @@ import { authClient } from '../lib/auth';
 import { relativeTime } from '../lib/format';
 import { setLocale } from '../lib/i18n';
 import { cn } from '../lib/utils';
-import { Avatar, Kbd, Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from './ui';
+import {
+  Avatar,
+  Button,
+  Kbd,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
+  MenuTrigger,
+} from './ui';
 
 export const MeContext = createContext<Me | null>(null);
 export function useMe(): Me {
   const me = useContext(MeContext);
   if (!me) throw new Error('useMe outside of app shell');
   return me;
+}
+/** The signed-in user, or `null` when the catalog is browsed without a session. */
+export function useOptionalMe(): Me | null {
+  return useContext(MeContext);
 }
 export const isAdmin = (me: Me) => me.permissions.includes('org.admin');
 
@@ -49,6 +64,20 @@ export function Logo({ className }: { className?: string }) {
       <rect width="32" height="32" rx="8" fill="var(--accent)" />
       <path d="M9 10h14M11 10v13M21 10v13M8 15h16" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/** The organisation icon when one is uploaded, the default logo otherwise. */
+export function OrgLogo({ iconUrl, className }: { iconUrl?: string | null; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!iconUrl || failed) return <Logo className={className} />;
+  return (
+    <img
+      src={iconUrl}
+      alt=""
+      onError={() => setFailed(true)}
+      className={cn('shrink-0 rounded-[25%] object-cover', className)}
+    />
   );
 }
 
@@ -112,7 +141,7 @@ function Sidebar({ me, onNavigate }: { me: Me; onNavigate?: () => void }) {
   return (
     <nav className="flex h-full flex-col gap-4 px-2.5 py-3">
       <Link to="/" className="flex items-center gap-2 px-1.5" onClick={onNavigate}>
-        <Logo className="h-6 w-6" />
+        <OrgLogo iconUrl={me.orgIconUrl} className="h-6 w-6" />
         <div className="min-w-0">
           <div className="truncate text-[13.5px] font-semibold leading-tight">{me.orgName || 'DojoHub'}</div>
           <div className="text-[11px] leading-tight text-subtle">DojoHub</div>
@@ -212,6 +241,61 @@ function Sidebar({ me, onNavigate }: { me: Me; onNavigate?: () => void }) {
           label={t('nav.connect')}
           onClick={onNavigate}
         />
+        <a
+          href="/api/docs"
+          target="_blank"
+          rel="noreferrer"
+          className="flex h-7 items-center gap-2 rounded-md px-2 text-[13px] text-muted hover:bg-panel-hover hover:text-fg"
+        >
+          <BookOpen className="h-4 w-4 text-subtle" />
+          {t('nav.apiDocs')}
+        </a>
+      </div>
+    </nav>
+  );
+}
+
+/** Minimal navigation for anonymous visitors: the catalog, and a way to sign in. */
+function GuestSidebar({ orgName, onNavigate }: { orgName: string | null; onNavigate?: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <nav className="flex h-full flex-col gap-4 px-2.5 py-3">
+      <Link to="/skills" className="flex items-center gap-2 px-1.5" onClick={onNavigate}>
+        <Logo className="h-6 w-6" />
+        <div className="min-w-0">
+          <div className="truncate text-[13.5px] font-semibold leading-tight">{orgName || 'DojoHub'}</div>
+          <div className="text-[11px] leading-tight text-subtle">{t('common.browseOnly')}</div>
+        </div>
+      </Link>
+      <div className="space-y-0.5">
+        <NavItem
+          to="/skills"
+          icon={<Compass className="h-4 w-4" />}
+          label={t('nav.discover')}
+          onClick={onNavigate}
+        />
+        <NavItem
+          to="/suites"
+          icon={<Boxes className="h-4 w-4" />}
+          label={t('nav.suites')}
+          onClick={onNavigate}
+        />
+        <NavItem
+          to="/teams"
+          icon={<Users className="h-4 w-4" />}
+          label={t('nav.teams')}
+          onClick={onNavigate}
+        />
+      </div>
+      <div className="mt-auto space-y-0.5">
+        <Link
+          to="/login"
+          onClick={onNavigate}
+          className="flex h-8 items-center gap-2 rounded-md border border-border bg-panel px-2.5 text-[13px] font-medium shadow-sm hover:bg-panel-hover"
+        >
+          <LogIn className="h-4 w-4 text-accent" />
+          {t('auth.signIn')}
+        </Link>
         <a
           href="/api/docs"
           target="_blank"
@@ -484,11 +568,13 @@ function UserMenu({ me }: { me: Me }) {
   );
 }
 
-export function AppShell({ me }: { me: Me }) {
+export function AppShell({ me, orgName }: { me: Me | null; orgName: string | null }) {
   const { t } = useTranslation();
   const [palette, setPalette] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
+  const guest = !me;
   useEffect(() => {
+    if (guest) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -505,12 +591,12 @@ export function AppShell({ me }: { me: Me }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [guest]);
   return (
     <MeContext.Provider value={me}>
       <div className="flex h-full">
         <aside className="hidden w-[232px] shrink-0 border-r border-border bg-bg-subtle md:block">
-          <Sidebar me={me} />
+          {me ? <Sidebar me={me} /> : <GuestSidebar orgName={orgName} />}
         </aside>
         {mobileNav && (
           <div className="fixed inset-0 z-40 md:hidden">
@@ -530,7 +616,11 @@ export function AppShell({ me }: { me: Me }) {
               >
                 <X className="h-4 w-4" />
               </button>
-              <Sidebar me={me} onNavigate={() => setMobileNav(false)} />
+              {me ? (
+                <Sidebar me={me} onNavigate={() => setMobileNav(false)} />
+              ) : (
+                <GuestSidebar orgName={orgName} onNavigate={() => setMobileNav(false)} />
+              )}
             </aside>
           </div>
         )}
@@ -544,18 +634,32 @@ export function AppShell({ me }: { me: Me }) {
             >
               <MenuIcon className="h-4 w-4" />
             </button>
-            <button
-              type="button"
-              onClick={() => setPalette(true)}
-              className="flex h-8 w-full max-w-md items-center gap-2 rounded-md border border-border bg-bg-subtle px-2.5 text-[13px] text-subtle transition-colors hover:border-border-strong"
-            >
-              <Search className="h-3.5 w-3.5" />
-              <span className="flex-1 text-left">{t('nav.search')}</span>
-              <Kbd>⌘K</Kbd>
-            </button>
+            {me ? (
+              <button
+                type="button"
+                onClick={() => setPalette(true)}
+                className="flex h-8 w-full max-w-md items-center gap-2 rounded-md border border-border bg-bg-subtle px-2.5 text-[13px] text-subtle transition-colors hover:border-border-strong"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span className="flex-1 text-left">{t('nav.search')}</span>
+                <Kbd>⌘K</Kbd>
+              </button>
+            ) : (
+              <span className="hidden flex-1 text-[13px] text-subtle sm:block">{t('common.browseOnly')}</span>
+            )}
             <div className="ml-auto flex items-center gap-1">
-              <Notifications />
-              <UserMenu me={me} />
+              {me ? (
+                <>
+                  <Notifications />
+                  <UserMenu me={me} />
+                </>
+              ) : (
+                <Link to="/login">
+                  <Button variant="primary" size="sm" icon={<LogIn className="h-3.5 w-3.5" />}>
+                    {t('auth.signIn')}
+                  </Button>
+                </Link>
+              )}
             </div>
           </header>
           <main className="min-h-0 flex-1 overflow-y-auto">
@@ -565,7 +669,7 @@ export function AppShell({ me }: { me: Me }) {
           </main>
         </div>
       </div>
-      <CommandPalette open={palette} onOpenChange={setPalette} />
+      {!!me && <CommandPalette open={palette} onOpenChange={setPalette} />}
     </MeContext.Provider>
   );
 }

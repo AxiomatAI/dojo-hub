@@ -8,7 +8,7 @@ Each namespace has a policy (or inherits the organization default). Edit it visu
     "maxRisk": "high", // reject automatically above this risk level
     "requireLlmVerification": false, // force human review if the LLM judge didn't run
     "blockOn": ["secret"], // finding rules/categories that reject immediately
-    "minClaimsScore": 0, // minimum "does what it claims" score (0-100)
+    "minClaimsScore": 0, // minimum "does what it claims" score (0-100; judge levels 1-5 map to 20/40/60/80/100)
     "rejectExactDuplicates": false
   },
   "stages": [

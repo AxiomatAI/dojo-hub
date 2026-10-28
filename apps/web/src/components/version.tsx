@@ -11,6 +11,14 @@ import { formatBytes } from '../lib/utils';
 import { CodeView, FileTree, FindingList, Markdown, RiskFlags, ScoreBar } from './dojo';
 import { Badge, Button, Card, CardHeader, EmptyState, Spinner } from './ui';
 
+/** Normalize judge scores to a 1–5 level. New reports store levels directly; legacy reports
+ * stored 0–100 scores, except models that ignored the scale and answered 1–5 (values ≤ 5). */
+function toLevel(value?: number | null): number | null {
+  if (typeof value !== 'number' || Number.isNaN(value)) return null;
+  const level = value <= 5 ? value : value / 20;
+  return Math.min(5, Math.max(1, Math.round(level)));
+}
+
 export interface VersionDetail {
   id: string;
   version: string;
@@ -151,12 +159,20 @@ export function SecurityReport({
     | {
         summary?: string;
         category?: string;
-        claimsMatch?: { score: number; explanation: string; mismatches: string[] };
-        quality?: { score: number; notes: string[] };
+        claimsMatch?: { level?: number; score?: number; explanation: string; mismatches: string[] };
+        quality?: { level?: number; score?: number; notes: string[] };
         security?: { verdict: string };
       }
     | null
     | undefined;
+  const claimsLevel = toLevel(report?.claimsMatch?.level ?? report?.claimsMatch?.score);
+  const qualityLevel = toLevel(report?.quality?.level ?? report?.quality?.score);
+  // Low claims/quality levels downgrade the headline verdict so it cannot read "safe" next to red bars.
+  const verdict =
+    report?.security?.verdict === 'safe' &&
+    ((claimsLevel !== null && claimsLevel <= 2) || (qualityLevel !== null && qualityLevel <= 2))
+      ? 'suspicious'
+      : report?.security?.verdict;
   const ordered = [
     'structure',
     'static',
@@ -180,17 +196,9 @@ export function SecurityReport({
             </span>
           }
           actions={
-            report?.security?.verdict && (
-              <Badge
-                tone={
-                  report.security.verdict === 'safe'
-                    ? 'ok'
-                    : report.security.verdict === 'suspicious'
-                      ? 'warn'
-                      : 'danger'
-                }
-              >
-                {report.security.verdict}
+            verdict && (
+              <Badge tone={verdict === 'safe' ? 'ok' : verdict === 'suspicious' ? 'warn' : 'danger'}>
+                {t(`security.verdicts.${verdict}`)}
               </Badge>
             )
           }
@@ -203,19 +211,22 @@ export function SecurityReport({
               </div>
               <p className="text-[13.5px] leading-relaxed">{report.summary}</p>
               {!!report.claimsMatch?.mismatches?.length && (
-                <ul className="mt-3 list-disc space-y-1 pl-5 text-[13px] text-warn">
-                  {report.claimsMatch.mismatches.map((m) => (
-                    <li key={m}>{m}</li>
-                  ))}
-                </ul>
+                <div className="mt-3">
+                  <div className="mb-1 text-[12px] font-medium text-subtle uppercase">
+                    {t('security.mismatches')}
+                  </div>
+                  <ul className="list-disc space-y-1 pl-5 text-[13px] text-warn">
+                    {report.claimsMatch.mismatches.map((m) => (
+                      <li key={m}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
               {llm.model && <p className="mt-3 text-[11.5px] text-subtle">{llm.model}</p>}
             </div>
             <div className="space-y-4">
-              {report.claimsMatch && (
-                <ScoreBar value={report.claimsMatch.score} label={t('security.claimsMatch')} />
-              )}
-              {report.quality && <ScoreBar value={report.quality.score} label={t('security.quality')} />}
+              {claimsLevel !== null && <ScoreBar level={claimsLevel} label={t('security.claimsMatch')} />}
+              {qualityLevel !== null && <ScoreBar level={qualityLevel} label={t('security.quality')} />}
             </div>
           </div>
         ) : (

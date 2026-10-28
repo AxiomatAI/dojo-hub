@@ -43,6 +43,10 @@ export async function ensureOrg(ctx: AppContext, name: string): Promise<string> 
   });
 }
 
+/** Public URL of the organisation icon (cache-busted by the blob digest), or null for the default logo. */
+export const orgIconPath = (iconSha: string | null | undefined): string | null =>
+  iconSha ? `/api/v1/org/icon?v=${iconSha.slice(0, 12)}` : null;
+
 export async function getSetting<T>(ctx: AppContext, orgId: string, key: string, fallback: T): Promise<T> {
   const [row] = await ctx.db
     .select({ value: setting.value })

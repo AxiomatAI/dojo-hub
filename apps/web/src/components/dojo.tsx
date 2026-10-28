@@ -457,16 +457,21 @@ export function DiffView({ patch }: { patch: string }) {
   );
 }
 
-export function ScoreBar({ value, label }: { value: number; label: ReactNode }) {
-  const color = value >= 75 ? 'bg-ok' : value >= 50 ? 'bg-warn' : 'bg-danger';
+export function ScoreBar({ level, label, max = 5 }: { level: number; label: ReactNode; max?: number }) {
+  const color = level >= 4 ? 'bg-ok' : level >= 3 ? 'bg-warn' : 'bg-danger';
   return (
     <div>
       <div className="mb-1 flex justify-between text-[12.5px]">
         <span className="text-muted">{label}</span>
-        <span className="font-medium tabular-nums">{value}</span>
+        <span className="font-medium tabular-nums">
+          {level}/{max}
+        </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-bg-subtle">
-        <div className={cn('h-full rounded-full', color)} style={{ width: `${Math.max(2, value)}%` }} />
+        <div
+          className={cn('h-full rounded-full', color)}
+          style={{ width: `${Math.max(2, (level / max) * 100)}%` }}
+        />
       </div>
     </div>
   );

@@ -65,6 +65,7 @@ export async function buildScanConfig(ctx: AppContext, orgId: string): Promise<S
       model,
       modelName: `${judge.provider}/${judge.model}`,
       consensus: Number(judge.options.consensus ?? 1),
+      language: typeof judge.options.language === 'string' ? judge.options.language : 'pl',
     };
   }
   const [dm] = await ctx.db

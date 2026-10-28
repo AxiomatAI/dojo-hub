@@ -22,7 +22,7 @@ import { Api } from '../lib/api';
 import { randomToken, safeEqual, sha256, userCode } from '../lib/crypto';
 import { AppError, badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors';
 import { audit } from '../services/audit';
-import { ensureOrg, getOrgId, getSetting, resetOrgCache } from '../services/org';
+import { ensureOrg, getOrgId, getSetting, orgIconPath, resetOrgCache } from '../services/org';
 import { createAccessToken } from '../services/tokens';
 
 export const VERSION = process.env.DOJO_VERSION ?? '0.1.0';
@@ -86,6 +86,12 @@ export function accountRoutes() {
       const status: SetupStatus = {
         needsSetup: users === 0,
         orgName: org?.name ?? null,
+        orgIconUrl: orgIconPath(org?.iconSha),
+        // The catalog is browsable without a session only when the admin declares the deployment
+        // network-gated (`distribution.anonymousInternal`).
+        anonymousBrowsing: orgId
+          ? await getSetting<boolean>(ctx, orgId, 'distribution.anonymousInternal', true)
+          : false,
         localAuth: ctx.config.DOJO_AUTH_LOCAL ?? true,
         ssoProviders: providers.map((p) => ({ ...p, name: meta[p.providerId]?.name ?? p.providerId })),
         version: VERSION,
@@ -151,12 +157,48 @@ export function accountRoutes() {
         orgId,
         orgName: org?.name ?? '',
         orgSlug: org?.slug ?? '',
+        orgIconUrl: orgIconPath(org?.iconSha),
         role: actor.orgRole,
         locale: u?.locale ?? null,
         namespaces: nss,
         permissions: permissionList(actor),
       };
       return me;
+    },
+  );
+
+  api.op(
+    {
+      method: 'get',
+      path: '/org/icon',
+      summary: 'Organisation icon',
+      description: 'The uploaded organisation icon, or 404 when the default logo is in use.',
+      tags: ['Org'],
+      public: true,
+    },
+    async ({ c, ctx }) => {
+      const orgId = await getOrgId(ctx);
+      const [org] = await ctx.db
+        .select({ iconSha: organization.iconSha, iconMime: organization.iconMime })
+        .from(organization)
+        .where(eq(organization.id, orgId));
+      if (!org?.iconSha) throw notFound('Organisation icon');
+      const etag = `"${org.iconSha}"`;
+      const headers = {
+        etag,
+        // SVG is served with a locked-down CSP: browsers never run scripts via <img>, this also
+        // protects anyone opening the URL directly.
+        'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        'x-content-type-options': 'nosniff',
+        'content-disposition': 'inline',
+        'cache-control': 'public, max-age=300',
+      };
+      if (c.req.header('if-none-match') === etag) return new Response(null, { status: 304, headers });
+      const bytes = await ctx.blobs.get(org.iconSha);
+      if (!bytes) throw notFound('Organisation icon');
+      return new Response(bytes as Uint8Array<ArrayBuffer>, {
+        headers: { ...headers, 'content-type': org.iconMime ?? 'image/png' },
+      });
     },
   );
 

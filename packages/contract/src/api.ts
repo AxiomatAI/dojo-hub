@@ -188,6 +188,8 @@ export interface Me extends UserSummary {
   orgId: string;
   orgName: string;
   orgSlug: string;
+  /** URL of the organisation icon (cache-busted), or null for the default logo. */
+  orgIconUrl: string | null;
   role: OrgRole;
   locale?: string | null;
   namespaces: { id: string; slug: string; displayName: string; role: NamespaceRole }[];
@@ -467,6 +469,9 @@ export interface SearchResultForSkillsCli {
 export interface SetupStatus {
   needsSetup: boolean;
   orgName: string | null;
+  orgIconUrl: string | null;
+  /** Serve the catalog without a session (network-gated deployments). */
+  anonymousBrowsing: boolean;
   localAuth: boolean;
   ssoProviders: { providerId: string; domain: string; name: string }[];
   version: string;

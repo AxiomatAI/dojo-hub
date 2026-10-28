@@ -11,11 +11,13 @@ import { Compass, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SkillRow } from '../components/dojo';
+import { useOptionalMe } from '../components/shell';
 import { Button, Card, EmptyState, Input, PageHeader, Select, Skeleton } from '../components/ui';
 import { api, qs } from '../lib/api';
 
 export function SkillsPage() {
   const { t } = useTranslation();
+  const me = useOptionalMe();
   const search = useSearch({ from: '/app/skills' }) as {
     q?: string;
     team?: string;
@@ -53,11 +55,13 @@ export function SkillsPage() {
         title={t('skills.title')}
         description={t('skills.subtitle')}
         actions={
-          <Link to="/submit">
-            <Button variant="primary" icon={<Plus className="h-3.5 w-3.5" />}>
-              {t('nav.submit')}
-            </Button>
-          </Link>
+          me ? (
+            <Link to="/submit">
+              <Button variant="primary" icon={<Plus className="h-3.5 w-3.5" />}>
+                {t('nav.submit')}
+              </Button>
+            </Link>
+          ) : null
         }
       />
       <div className="mb-3 flex flex-wrap items-center gap-2">
