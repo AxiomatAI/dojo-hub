@@ -327,6 +327,12 @@
     "llmSummary": "What it does",
     "claimsMatch": "Does what it claims",
     "quality": "Instruction quality",
+    "mismatches": "Does not match the description",
+    "verdicts": {
+      "safe": "safe",
+      "suspicious": "suspicious",
+      "malicious": "malicious"
+    },
     "llmSkipped": "LLM verification is not configured.",
     "configureLlm": "Configure",
     "duplicates": "Possible duplicates",
@@ -638,6 +644,7 @@
     "apiKeySet": "A key is stored. Leave empty to keep it.",
     "baseUrl": "Base URL",
     "consensus": "Consensus runs",
+    "reportLanguage": "Report language",
     "embedding": "Embeddings (semantic duplicate detection)",
     "testPrompt": "Send test prompt",
     "decisionModel": "External decision model",

@@ -95,8 +95,8 @@ describe('llm judge', () => {
         verdict: 'malicious',
         risks: [{ severity: 'critical', category: 'exfiltration', explanation: 'Uploads ~/.ssh' }],
       },
-      claimsMatch: { score: 20, explanation: 'Does something else', mismatches: ['exfiltration'] },
-      quality: { score: 40, notes: [] },
+      claimsMatch: { level: 1, explanation: 'Does something else', mismatches: ['exfiltration'] },
+      quality: { level: 2, notes: [] },
     };
     const model = new MockLanguageModelV4({
       doGenerate: async () => ({
