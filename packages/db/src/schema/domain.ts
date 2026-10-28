@@ -62,6 +62,9 @@ export const organization = pgTable('organization', {
   id: id(),
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
+  /** Organisation icon: content-addressed blob (see BlobStore) + detected MIME. */
+  iconSha: text('icon_sha'),
+  iconMime: text('icon_mime'),
   settings: jsonb('settings').$type<Record<string, unknown>>().default({}).notNull(),
   createdAt: createdAt(),
 });

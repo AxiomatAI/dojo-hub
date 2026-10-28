@@ -7,12 +7,12 @@ import {
 } from '@dojohub/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { CheckCircle2, Plus, RefreshCw, Send, Shield, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { CheckCircle2, Plus, RefreshCw, Send, Shield, Trash2, UploadCloud } from 'lucide-react';
+import { type ChangeEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { PolicyEditor } from '../components/policy-editor';
-import { isAdmin, useMe } from '../components/shell';
+import { isAdmin, OrgLogo, useMe } from '../components/shell';
 import {
   Avatar,
   Badge,
@@ -975,6 +975,33 @@ function VerificationTab() {
 }
 
 // ───────── General / policies / webhooks / audit ─────────
+
+const ICON_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+const MAX_ICON_BYTES = 2 * 1024 * 1024;
+
+/** Client-side pre-checks mirroring the server rules (the server remains the source of truth). */
+async function checkIconFile(file: File, t: (k: string) => string): Promise<void> {
+  if (!ICON_TYPES.includes(file.type)) throw new Error(t('admin.orgIconBadType'));
+  if (file.size > MAX_ICON_BYTES) throw new Error(t('admin.orgIconTooLarge'));
+  const dims = await new Promise<{ w: number; h: number } | null>((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null); // e.g. SVG without intrinsic size — let the server judge
+    };
+    img.src = url;
+  });
+  if (dims && dims.w > 0 && dims.h > 0) {
+    const ratio = dims.w / dims.h;
+    if (ratio < 0.5 || ratio > 2) throw new Error(t('admin.orgIconBadRatio'));
+  }
+}
+
 function GeneralTab() {
   const { t } = useTranslation();
   const me = useMe();
@@ -990,8 +1017,55 @@ function GeneralTab() {
   const toggle = useAction((v: boolean) => api.put('admin/settings', { anonymousInternal: v }), {
     invalidate: [['admin-settings']],
   });
+  const fileInput = useRef<HTMLInputElement>(null);
+  const uploadIcon = useAction(
+    async (file: File) => {
+      await checkIconFile(file, t);
+      return api.put<{ ok: boolean; iconUrl: string }>('admin/org/icon', file, {
+        'content-type': file.type || 'application/octet-stream',
+      });
+    },
+    { invalidate: [['me']], success: t('admin.orgIconUpdated') },
+  );
+  const removeIcon = useAction(() => api.del('admin/org/icon'), {
+    invalidate: [['me']],
+    success: t('common.done'),
+  });
+  const onPick = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) uploadIcon.mutate(file);
+  };
   return (
     <Card className="max-w-2xl space-y-4 p-5">
+      <Field label={t('admin.orgIcon')} hint={t('admin.orgIconHelp')}>
+        <div className="flex items-center gap-3">
+          <OrgLogo iconUrl={me.orgIconUrl} className="h-12 w-12" />
+          <input
+            ref={fileInput}
+            type="file"
+            accept={ICON_TYPES.join(',')}
+            className="hidden"
+            onChange={onPick}
+          />
+          <Button
+            icon={<UploadCloud className="h-4 w-4" />}
+            loading={uploadIcon.isPending}
+            onClick={() => fileInput.current?.click()}
+          >
+            {t('admin.orgIconUpload')}
+          </Button>
+          {me.orgIconUrl && (
+            <Button
+              variant="ghost"
+              loading={removeIcon.isPending}
+              onClick={() => removeIcon.mutate(undefined)}
+            >
+              {t('common.remove')}
+            </Button>
+          )}
+        </div>
+      </Field>
       <Field label={t('admin.orgName')}>
         <div className="flex gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} />

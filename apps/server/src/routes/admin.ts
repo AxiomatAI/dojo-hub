@@ -35,10 +35,11 @@ import type { AppContext } from '../context';
 import { Api } from '../lib/api';
 import { randomToken, SCIM_PREFIX, sha256 } from '../lib/crypto';
 import { AppError, badRequest, forbidden, notFound } from '../lib/errors';
+import { validateOrgIcon } from '../lib/image';
 import { audit } from '../services/audit';
 import { usersById } from '../services/dto';
 import { reapplyForGroup, upsertGroups } from '../services/groups';
-import { getSetting, putSetting } from '../services/org';
+import { getSetting, orgIconPath, putSetting } from '../services/org';
 import { validateCondition } from '../services/policy';
 import { createLocalUser } from './account';
 
@@ -168,6 +169,69 @@ export function adminRoutes() {
     async ({ ctx, actor, orgId, body }) => {
       requireAdmin(actor);
       await ctx.db.update(organization).set({ name: body.name }).where(eq(organization.id, orgId));
+      return { ok: true };
+    },
+  );
+
+  api.op(
+    {
+      method: 'put',
+      path: '/admin/org/icon',
+      summary: 'Upload the organisation icon',
+      description:
+        'Send the image as the raw request body or as multipart field "file". PNG, JPEG, WebP or SVG, up to 2 MB, aspect ratio between 1:2 and 2:1.',
+      tags: ['Admin'],
+    },
+    async ({ c, ctx, actor, orgId }) => {
+      requireAdmin(actor);
+      const type = c.req.header('content-type') ?? '';
+      let bytes: Uint8Array;
+      if (type.startsWith('multipart/form-data')) {
+        const form = await c.req.parseBody();
+        const file = form.file;
+        if (!(file instanceof File)) throw badRequest('Missing "file" field');
+        bytes = new Uint8Array(await file.arrayBuffer());
+      } else {
+        bytes = new Uint8Array(await c.req.arrayBuffer());
+      }
+      const info = validateOrgIcon(bytes);
+      const sha = await ctx.blobs.put(bytes);
+      await ctx.db
+        .update(organization)
+        .set({ iconSha: sha, iconMime: info.mime })
+        .where(eq(organization.id, orgId));
+      await audit(ctx, {
+        orgId,
+        actorId: actor.userId,
+        action: 'org.icon_updated',
+        targetType: 'organization',
+        targetId: orgId,
+        metadata: { sha256: sha, mime: info.mime, width: info.width, height: info.height },
+      });
+      return { ok: true, iconUrl: orgIconPath(sha) };
+    },
+  );
+
+  api.op(
+    {
+      method: 'delete',
+      path: '/admin/org/icon',
+      summary: 'Remove the organisation icon',
+      tags: ['Admin'],
+    },
+    async ({ ctx, actor, orgId }) => {
+      requireAdmin(actor);
+      await ctx.db
+        .update(organization)
+        .set({ iconSha: null, iconMime: null })
+        .where(eq(organization.id, orgId));
+      await audit(ctx, {
+        orgId,
+        actorId: actor.userId,
+        action: 'org.icon_removed',
+        targetType: 'organization',
+        targetId: orgId,
+      });
       return { ok: true };
     },
   );

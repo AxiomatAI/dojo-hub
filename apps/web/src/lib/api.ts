@@ -38,7 +38,8 @@ export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: Json | BodyInit, headers?: Record<string, string>) =>
     request<T>('POST', path, body ?? {}, headers),
-  put: <T>(path: string, body?: Json) => request<T>('PUT', path, body ?? {}),
+  put: <T>(path: string, body?: Json | BodyInit, headers?: Record<string, string>) =>
+    request<T>('PUT', path, body ?? {}, headers),
   patch: <T>(path: string, body?: Json) => request<T>('PATCH', path, body ?? {}),
   del: <T>(path: string) => request<T>('DELETE', path),
 };

@@ -52,6 +52,20 @@ export function Logo({ className }: { className?: string }) {
   );
 }
 
+/** The organisation icon when one is uploaded, the default logo otherwise. */
+export function OrgLogo({ iconUrl, className }: { iconUrl?: string | null; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!iconUrl || failed) return <Logo className={className} />;
+  return (
+    <img
+      src={iconUrl}
+      alt=""
+      onError={() => setFailed(true)}
+      className={cn('shrink-0 rounded-[25%] object-cover', className)}
+    />
+  );
+}
+
 type Theme = 'system' | 'light' | 'dark';
 function applyTheme(t: Theme) {
   try {
@@ -112,7 +126,7 @@ function Sidebar({ me, onNavigate }: { me: Me; onNavigate?: () => void }) {
   return (
     <nav className="flex h-full flex-col gap-4 px-2.5 py-3">
       <Link to="/" className="flex items-center gap-2 px-1.5" onClick={onNavigate}>
-        <Logo className="h-6 w-6" />
+        <OrgLogo iconUrl={me.orgIconUrl} className="h-6 w-6" />
         <div className="min-w-0">
           <div className="truncate text-[13.5px] font-semibold leading-tight">{me.orgName || 'DojoHub'}</div>
           <div className="text-[11px] leading-tight text-subtle">DojoHub</div>
