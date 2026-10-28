@@ -1,7 +1,10 @@
+import { createHmac } from 'node:crypto';
 import {
   decisionModelBody,
   groupMappingBody,
+  type LlmProvider,
   llmConfigBody,
+  llmProvider,
   orgRole,
   policyBody,
   ssoProviderBody,
@@ -25,8 +28,14 @@ import {
   webhook,
   webhookDelivery,
 } from '@dojohub/db';
-import { createLanguageModel, loadRulePack } from '@dojohub/scanner';
-import { generateText } from 'ai';
+import {
+  createEmbeddingModel,
+  createLanguageModel,
+  decisionResponseSchema,
+  loadRulePack,
+  OPENROUTER_BASE_URL,
+} from '@dojohub/scanner';
+import { embed, generateText } from 'ai';
 import { and, count, desc, eq, isNull, lt } from 'drizzle-orm';
 import { z } from 'zod';
 import type { SsoProviderMeta } from '../auth/auth';
@@ -62,6 +71,124 @@ async function discoverOidc(issuer: string, discoveryUrl?: string) {
   if (!doc.authorization_endpoint || !doc.token_endpoint)
     throw new AppError(502, 'discovery_failed', 'Discovery document is missing endpoints');
   return { url, doc };
+}
+
+/**
+ * Masked view of a stored secret: never reveals the value itself, only a fixed run of bullets and
+ * the last four characters, so an admin can see that a key exists without reading it.
+ */
+const maskSecret = (value: string | null | undefined): string | null =>
+  value ? `${'•'.repeat(12)}${value.slice(-4)}` : null;
+
+/** Providers exposing a model catalogue we can query. Azure/Bedrock do not list models. */
+const LISTABLE_PROVIDERS = new Set<LlmProvider>([
+  'anthropic',
+  'openai',
+  'google',
+  'openrouter',
+  'openai-compatible',
+]);
+
+interface ModelOption {
+  id: string;
+  name: string;
+}
+
+/** Loose shape of a catalogue row — providers differ in the fields they send. */
+interface RawModel {
+  id?: string;
+  name?: string;
+  display_name?: string;
+  displayName?: string;
+  architecture?: { modality?: string; output_modalities?: string[] };
+}
+
+async function fetchJson(url: string, init: RequestInit = {}): Promise<Record<string, unknown>> {
+  const res = await fetch(url, { ...init, signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+  return res.json();
+}
+
+/** Model rows of a provider document (`data` for OpenAI-compatible APIs, `models` for Google). */
+function rawRows(doc: Record<string, unknown>, ...keys: string[]): RawModel[] {
+  for (const key of keys) {
+    const value = doc[key];
+    if (Array.isArray(value)) return value as RawModel[];
+  }
+  return [];
+}
+
+const trimSlash = (u: string) => u.replace(/\/+$/, '');
+const isEmbeddingId = (id: string) => /embed|bge-|gte-|e5-|voyage|jina-embed/i.test(id);
+
+/** Query the provider's model catalogue. Throws when the list cannot be retrieved. */
+async function listProviderModels(
+  provider: LlmProvider,
+  purpose: 'judge' | 'embedding',
+  opts: { apiKey?: string | null; baseUrl?: string | null },
+): Promise<ModelOption[]> {
+  const { apiKey, baseUrl } = opts;
+  const auth: Record<string, string> = apiKey ? { authorization: `Bearer ${apiKey}` } : {};
+  const keep = (id: string) => id && (purpose === 'embedding' ? isEmbeddingId(id) : !isEmbeddingId(id));
+  switch (provider) {
+    case 'openrouter': {
+      // The OpenRouter catalogue is public, so the picker works before a key is saved.
+      const doc = await fetchJson(`${trimSlash(baseUrl || OPENROUTER_BASE_URL)}/models`);
+      const rows = rawRows(doc, 'data').map((m) => ({
+        id: String(m.id ?? ''),
+        name: String(m.name ?? m.id ?? ''),
+        embed:
+          m.architecture?.output_modalities?.includes('embedding') === true ||
+          String(m.architecture?.modality ?? '').endsWith('->embedding'),
+      }));
+      return rows
+        .filter((r) => r.id && (purpose === 'embedding' ? r.embed : !r.embed))
+        .slice(0, 500)
+        .map(({ id, name }) => ({ id, name }));
+    }
+    case 'openai': {
+      if (!apiKey) throw new Error('An API key is required to list OpenAI models');
+      const doc = await fetchJson('https://api.openai.com/v1/models', { headers: auth });
+      return rawRows(doc, 'data')
+        .map((m) => String(m.id ?? ''))
+        .filter(keep)
+        .map((id) => ({ id, name: id }));
+    }
+    case 'anthropic': {
+      if (purpose === 'embedding') return [];
+      if (!apiKey) throw new Error('An API key is required to list Anthropic models');
+      const doc = await fetchJson('https://api.anthropic.com/v1/models', {
+        headers: { ...auth, 'anthropic-version': '2023-06-01' },
+      });
+      return rawRows(doc, 'data').map((m) => ({
+        id: String(m.id ?? ''),
+        name: String(m.display_name ?? m.id ?? ''),
+      }));
+    }
+    case 'google': {
+      if (!apiKey) throw new Error('An API key is required to list Google models');
+      const doc = await fetchJson(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+      );
+      return rawRows(doc, 'models')
+        .map((m) => ({
+          id: String(m.name ?? '').replace(/^models\//, ''),
+          name: String(m.displayName ?? ''),
+        }))
+        .filter((m) => keep(m.id));
+    }
+    case 'openai-compatible': {
+      if (!baseUrl) throw new Error('baseUrl is required to list models of an OpenAI-compatible endpoint');
+      const doc = await fetchJson(`${trimSlash(baseUrl)}/models`, { headers: auth });
+      return rawRows(doc, 'data', 'models')
+        .map((m) => String(m.id ?? m.name ?? ''))
+        .filter(keep)
+        .map((id) => ({ id, name: id }));
+    }
+    case 'azure':
+    case 'bedrock':
+      return [];
+  }
 }
 
 export function adminRoutes() {
@@ -688,9 +815,46 @@ export function adminRoutes() {
         model: r.model,
         baseUrl: r.baseUrl,
         hasKey: !!r.apiKeyEnc,
+        keyHint: maskSecret(ctx.secrets.decryptOrNull(r.apiKeyEnc)),
         options: r.options,
         enabled: r.enabled,
       }));
+    },
+  );
+
+  api.op(
+    {
+      method: 'post',
+      path: '/admin/llm/models',
+      summary: 'List models offered by a provider',
+      tags: ['Admin: Verification'],
+      body: z.object({
+        provider: llmProvider,
+        purpose: z.enum(['judge', 'embedding']).default('judge'),
+        baseUrl: z.string().max(1000).optional(),
+        apiKey: z.string().max(1000).optional(),
+      }),
+    },
+    async ({ ctx, actor, orgId, body }) => {
+      requireAdmin(actor);
+      if (!LISTABLE_PROVIDERS.has(body.provider)) return { models: [], supported: false, error: null };
+      const [cfg] = await ctx.db
+        .select()
+        .from(llmConfig)
+        .where(and(eq(llmConfig.orgId, orgId), eq(llmConfig.purpose, body.purpose)));
+      const opts = {
+        apiKey: body.apiKey || (cfg ? ctx.secrets.decryptOrNull(cfg.apiKeyEnc) : null),
+        baseUrl: body.baseUrl || cfg?.baseUrl || null,
+      };
+      try {
+        return {
+          models: await listProviderModels(body.provider, body.purpose, opts),
+          supported: true,
+          error: null,
+        };
+      } catch (err) {
+        return { models: [], supported: true, error: (err as Error).message.slice(0, 300) };
+      }
     },
   );
 
@@ -756,31 +920,51 @@ export function adminRoutes() {
     {
       method: 'post',
       path: '/admin/llm/test',
-      summary: 'Send a test prompt with the judge model',
+      summary: 'Send a test prompt with the configured model',
       tags: ['Admin: Verification'],
+      body: z.object({
+        purpose: z.enum(['judge', 'embedding']).default('judge'),
+        prompt: z.string().max(4000).optional(),
+        provider: llmProvider.optional(),
+        model: z.string().max(300).optional(),
+        baseUrl: z.string().max(1000).optional(),
+        apiKey: z.string().max(1000).optional(),
+      }),
     },
-    async ({ ctx, actor, orgId }) => {
+    async ({ ctx, actor, orgId, body }) => {
       requireAdmin(actor);
       const [cfg] = await ctx.db
         .select()
         .from(llmConfig)
-        .where(and(eq(llmConfig.orgId, orgId), eq(llmConfig.purpose, 'judge')));
-      if (!cfg) throw notFound('Judge model configuration');
+        .where(and(eq(llmConfig.orgId, orgId), eq(llmConfig.purpose, body.purpose)));
+      // Fall back to the stored configuration, but let unsaved form values override it so a new
+      // provider/model/key can be verified before saving.
+      const provider = body.provider ?? cfg?.provider;
+      const model = body.model ?? cfg?.model;
+      if (!provider || !model) throw notFound('Model configuration');
+      const opts = {
+        provider,
+        model,
+        apiKey: body.apiKey || (cfg ? ctx.secrets.decryptOrNull(cfg.apiKeyEnc) : null),
+        baseUrl: body.baseUrl || cfg?.baseUrl || null,
+        options: cfg?.options ?? {},
+      };
       const started = Date.now();
       try {
-        const model = await createLanguageModel({
-          provider: cfg.provider,
-          model: cfg.model,
-          apiKey: ctx.secrets.decryptOrNull(cfg.apiKeyEnc),
-          baseUrl: cfg.baseUrl,
-          options: cfg.options,
-        });
+        if (body.purpose === 'embedding') {
+          const { embedding } = await embed({
+            model: await createEmbeddingModel(opts),
+            value: body.prompt?.trim() || 'DojoHub embedding test',
+          });
+          return { ok: true, dimensions: embedding.length, latencyMs: Date.now() - started };
+        }
+        const languageModel = await createLanguageModel(opts);
         const res = await generateText({
-          model,
-          prompt: 'Reply with the single word: ready',
-          maxOutputTokens: 16,
+          model: languageModel,
+          prompt: body.prompt?.trim() || 'Reply with the single word: ready',
+          maxOutputTokens: 120,
         });
-        return { ok: true, reply: res.text.trim().slice(0, 100), latencyMs: Date.now() - started };
+        return { ok: true, reply: res.text.trim().slice(0, 300), latencyMs: Date.now() - started };
       } catch (err) {
         return { ok: false, error: (err as Error).message.slice(0, 500), latencyMs: Date.now() - started };
       }
@@ -802,6 +986,7 @@ export function adminRoutes() {
             name: row.name,
             url: row.url,
             hasSecret: !!row.secretEnc,
+            secretHint: maskSecret(ctx.secrets.decryptOrNull(row.secretEnc)),
             timeoutMs: row.timeoutMs,
             onError: row.onError,
             enabled: row.enabled,
@@ -855,6 +1040,80 @@ export function adminRoutes() {
       requireAdmin(actor);
       await ctx.db.delete(decisionModel).where(eq(decisionModel.orgId, orgId));
       return { ok: true };
+    },
+  );
+
+  api.op(
+    {
+      method: 'post',
+      path: '/admin/decision-model/test',
+      summary: 'Send a sample payload to the decision model',
+      tags: ['Admin: Verification'],
+      body: z.object({
+        /** Overrides so unsaved form values can be verified before storing them. */
+        url: z.url().optional(),
+        secret: z.string().max(1000).optional(),
+      }),
+    },
+    async ({ ctx, actor, orgId, body }) => {
+      requireAdmin(actor);
+      const [row] = await ctx.db.select().from(decisionModel).where(eq(decisionModel.orgId, orgId));
+      const url = body.url ?? row?.url;
+      if (!url) throw notFound('Decision model');
+      const secret = body.secret || (row ? ctx.secrets.decryptOrNull(row.secretEnc) : null);
+      const content = '---\nname: dojohub-test\n---\n# DojoHub connectivity test';
+      const payload = JSON.stringify({
+        schemaVersion: 1,
+        skill: {
+          name: 'dojohub-test',
+          description: 'Connectivity test sent from the DojoHub administration panel.',
+          frontmatter: {},
+        },
+        version: '0.0.0',
+        previousVersion: null,
+        files: [{ path: 'SKILL.md', size: content.length, content }],
+        findings: [],
+      });
+      const headers: Record<string, string> = {
+        'content-type': 'application/json',
+        'user-agent': 'DojoHub-DecisionModel/1',
+      };
+      if (secret)
+        headers['x-dojo-signature'] = `sha256=${createHmac('sha256', secret).update(payload).digest('hex')}`;
+      const started = Date.now();
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: payload,
+          signal: AbortSignal.timeout(row?.timeoutMs ?? 15_000),
+        });
+        const latencyMs = Date.now() - started;
+        const text = await res.text();
+        if (!res.ok) return { ok: false, error: `HTTP ${res.status}: ${text.slice(0, 300)}`, latencyMs };
+        let json: unknown;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          return { ok: false, error: 'Response is not valid JSON', latencyMs };
+        }
+        const parsed = decisionResponseSchema.safeParse(json);
+        if (!parsed.success)
+          return {
+            ok: false,
+            error: 'Expected { decision: allow | review | deny, score?, reasons? }',
+            latencyMs,
+          };
+        return {
+          ok: true,
+          decision: parsed.data.decision,
+          score: parsed.data.score ?? null,
+          reasons: parsed.data.reasons,
+          latencyMs,
+        };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message.slice(0, 500), latencyMs: Date.now() - started };
+      }
     },
   );
 

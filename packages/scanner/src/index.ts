@@ -39,6 +39,19 @@ export function buildAnalyzers(config: ScanConfig = {}): Analyzer[] {
  * Run all analyzers. Deterministic analyzers run first so their findings can be passed to the
  * external decision model. Skill content is never executed.
  */
+/**
+ * Run only the LLM judge — used to (re-)run the verification for a version that was scanned
+ * before a judge model was configured. Returns `skipped` when no judge is configured.
+ */
+export async function runLlmOnly(ctx: ScanContext, config: ScanConfig = {}): Promise<AnalyzerResult> {
+  if (!config.judge) return { analyzer: 'llm', status: 'skipped', findings: [] };
+  try {
+    return await llmJudgeAnalyzer(config.judge).run(ctx);
+  } catch (err) {
+    return { analyzer: 'llm', status: 'error', findings: [], error: (err as Error).message };
+  }
+}
+
 export async function runScan(ctx: ScanContext, config: ScanConfig = {}): Promise<AnalyzerResult[]> {
   const results: AnalyzerResult[] = [];
   const safeRun = async (a: Analyzer): Promise<AnalyzerResult> => {

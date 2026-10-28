@@ -8,8 +8,20 @@ import {
 import { LOCALE_LABELS, LOCALES } from '@dojohub/i18n';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { CheckCircle2, Plus, RefreshCw, Send, Shield, Trash2, UploadCloud } from 'lucide-react';
-import { type ChangeEvent, useRef, useState } from 'react';
+import {
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  Plus,
+  RefreshCw,
+  Send,
+  Shield,
+  Trash2,
+  UploadCloud,
+} from 'lucide-react';
+import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { PolicyEditor } from '../components/policy-editor';
@@ -39,6 +51,7 @@ import {
 import { api } from '../lib/api';
 import { formatDateTime, relativeTime } from '../lib/format';
 import { errorMessage, useAction } from '../lib/hooks';
+import { cn } from '../lib/utils';
 
 // ───────── SSO ─────────
 const PRESETS = ['entra', 'google', 'okta', 'auth0', 'keycloak', 'oidc', 'saml'] as const;
@@ -701,8 +714,196 @@ const MODEL_HINT: Record<string, string> = {
   azure: '<deployment-name>',
   bedrock: '<bedrock-model-id>',
   google: 'gemini-2.5-pro',
+  openrouter: 'openai/gpt-4o',
   'openai-compatible': 'llama3.3:70b',
 };
+
+/** Default model per provider on the embedding form. */
+const EMBED_MODEL_HINT: Record<string, string> = {
+  openai: 'text-embedding-3-small',
+  azure: '<deployment-name>',
+  bedrock: '<bedrock-model-id>',
+  google: 'text-embedding-004',
+  openrouter: 'openai/text-embedding-3-small',
+  'openai-compatible': 'nomic-embed-text',
+};
+
+const BASE_URL_HINT: Record<string, string> = {
+  openrouter: 'https://openrouter.ai/api/v1',
+  'openai-compatible': 'http://ollama:11434/v1',
+};
+
+/** Providers that publish a model catalogue we can load into the picker. */
+const PICKABLE_PROVIDERS = new Set(['anthropic', 'openai', 'google', 'openrouter', 'openai-compatible']);
+
+/** Providers where the JSON-schema structured-output switch actually changes the request. */
+const STRUCTURED_OUTPUT_PROVIDERS = new Set(['openrouter', 'openai-compatible']);
+
+/** In-depth instructions for the custom YAML rule pack. */
+const RULES_DOC_URL = 'https://github.com/axiomat/dojohub/blob/main/docs/security-scanning.md#custom-rules';
+
+/**
+ * Secret input. A stored key is shown only as a masked placeholder (bullets + last four
+ * characters — never the value itself) and whatever is typed can be revealed with the eye toggle.
+ */
+export function SecretInput({
+  value,
+  onChange,
+  storedHint,
+  hasStored,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  storedHint?: string | null;
+  hasStored?: boolean;
+}) {
+  const { t } = useTranslation();
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        type={visible ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={hasStored ? (storedHint ?? '••••••••••••') : undefined}
+        autoComplete="new-password"
+        className="pr-9 font-mono"
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? t('admin.hideKey') : t('admin.showKey')}
+        title={visible ? t('admin.hideKey') : t('admin.showKey')}
+        className="absolute top-0 right-0 flex h-8 w-9 items-center justify-center text-subtle transition-colors hover:text-fg"
+      >
+        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
+
+/** Model field with a searchable dropdown fed by the provider's model catalogue. */
+function ModelPicker({
+  value,
+  onChange,
+  provider,
+  purpose,
+  apiKey,
+  baseUrl,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  provider: string;
+  purpose: 'judge' | 'embedding';
+  apiKey: string;
+  baseUrl: string;
+  placeholder?: string;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [nonce, setNonce] = useState(0);
+  const pickable = PICKABLE_PROVIDERS.has(provider);
+  const q = useQuery({
+    queryKey: ['admin-llm-models', provider, purpose, baseUrl, apiKey ? 'key' : '', nonce],
+    queryFn: () =>
+      api.post<{ models: { id: string; name: string }[]; supported: boolean; error: string | null }>(
+        'admin/llm/models',
+        { provider, purpose, baseUrl: baseUrl || undefined, apiKey: apiKey || undefined },
+      ),
+    enabled: open && pickable,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const all = q.data?.models ?? [];
+  const needle = value.trim().toLowerCase();
+  // While the value matches a catalogue entry exactly, show everything — only narrow the list
+  // while the user is actually searching for something else.
+  const exact = all.some((m) => m.id.toLowerCase() === needle);
+  const shown =
+    needle && !exact
+      ? all.filter((m) => `${m.id} ${m.name}`.toLowerCase().includes(needle)).slice(0, 60)
+      : all;
+  const close = () => setOpen(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // Close when the click lands outside the picker (the input itself keeps the menu open on blur).
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+  return (
+    <div ref={rootRef} className="relative">
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => pickable && setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') close();
+        }}
+        placeholder={placeholder}
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+        className="pr-8 font-mono"
+      />
+      {pickable && (
+        <ChevronDown className="pointer-events-none absolute top-2 right-2.5 h-4 w-4 text-subtle" />
+      )}
+      {pickable && open && (
+        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-md border border-border bg-panel shadow-panel">
+          <div className="flex items-center justify-between gap-2 border-b border-border px-2.5 py-1.5 text-[11.5px] text-subtle">
+            <span className="min-w-0 truncate" title={q.data?.error ?? undefined}>
+              {q.isFetching
+                ? t('common.loading')
+                : (q.data?.error ?? t('admin.modelsCount', { n: all.length }))}
+            </span>
+            <button
+              type="button"
+              aria-label={t('common.refresh')}
+              title={t('common.refresh')}
+              onClick={() => setNonce((n) => n + 1)}
+              className="shrink-0 text-subtle transition-colors hover:text-fg"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', q.isFetching && 'animate-spin')} />
+            </button>
+          </div>
+          <ul className="max-h-56 overflow-y-auto p-1">
+            {shown.map((m) => (
+              <li key={m.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(m.id);
+                    close();
+                  }}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-panel-hover"
+                >
+                  <Check
+                    className={cn(
+                      'h-3.5 w-3.5 shrink-0 text-accent',
+                      m.id === value ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
+                  <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{m.id}</span>
+                  {m.name && m.name !== m.id && (
+                    <span className="max-w-[45%] shrink-0 truncate text-[11.5px] text-subtle">{m.name}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+            {!q.isFetching && shown.length === 0 && (
+              <li className="px-2 py-2 text-[12px] text-subtle">{t('admin.modelsEmpty')}</li>
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function LlmForm({
   purpose = 'judge',
@@ -722,6 +923,7 @@ export function LlmForm({
           model: string;
           baseUrl: string | null;
           hasKey: boolean;
+          keyHint: string | null;
           options: Record<string, unknown>;
           enabled: boolean;
         }[]
@@ -734,6 +936,7 @@ export function LlmForm({
     baseUrl: string;
     apiKey: string;
     consensus: string;
+    structuredOutputs: boolean;
     language: string;
     enabled: boolean;
   } | null>(null);
@@ -743,6 +946,7 @@ export function LlmForm({
     baseUrl: existing?.baseUrl ?? '',
     apiKey: '',
     consensus: String(existing?.options.consensus ?? 1),
+    structuredOutputs: existing?.options.structuredOutputs === true,
     language: String(existing?.options.language ?? 'pl'),
     enabled: existing?.enabled ?? true,
   };
@@ -755,21 +959,47 @@ export function LlmForm({
         model: v.model,
         baseUrl: v.baseUrl || undefined,
         apiKey: v.apiKey || undefined,
-        options: { consensus: Number(v.consensus), ...(purpose === 'judge' ? { language: v.language } : {}) },
+        options: {
+          consensus: Number(v.consensus),
+          ...(STRUCTURED_OUTPUT_PROVIDERS.has(v.provider) ? { structuredOutputs: v.structuredOutputs } : {}),
+          ...(purpose === 'judge' ? { language: v.language } : {}),
+        },
         enabled: v.enabled,
       }),
     { invalidate: [['admin-llm'], ['setup-status']], success: t('common.done'), onSuccess: () => onDone?.() },
   );
+  const [testText, setTestText] = useState('');
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
   const test = async () => {
+    setTesting(true);
     setTestResult('…');
     try {
-      const r = await api.post<{ ok: boolean; reply?: string; error?: string; latencyMs: number }>(
-        'admin/llm/test',
+      const r = await api.post<{
+        ok: boolean;
+        reply?: string;
+        dimensions?: number;
+        error?: string;
+        latencyMs: number;
+      }>('admin/llm/test', {
+        purpose,
+        prompt: testText || undefined,
+        provider: v.provider,
+        model: v.model,
+        baseUrl: v.baseUrl || undefined,
+        apiKey: v.apiKey || undefined,
+      });
+      setTestResult(
+        !r.ok
+          ? `✗ ${r.error}`
+          : purpose === 'embedding'
+            ? t('admin.testEmbeddingOk', { dims: r.dimensions, ms: r.latencyMs })
+            : `✓ "${r.reply}" (${r.latencyMs} ms)`,
       );
-      setTestResult(r.ok ? `✓ "${r.reply}" (${r.latencyMs} ms)` : `✗ ${r.error}`);
     } catch (err) {
       setTestResult(`✗ ${errorMessage(err)}`);
+    } finally {
+      setTesting(false);
     }
   };
   return (
@@ -778,7 +1008,12 @@ export function LlmForm({
         <Field label={t('admin.provider')}>
           <Select
             value={v.provider}
-            onChange={(e) => set({ provider: e.target.value, model: MODEL_HINT[e.target.value] ?? '' })}
+            onChange={(e) =>
+              set({
+                provider: e.target.value,
+                model: (purpose === 'embedding' ? EMBED_MODEL_HINT : MODEL_HINT)[e.target.value] ?? '',
+              })
+            }
           >
             {LLM_PROVIDERS.filter((p) => purpose === 'judge' || p !== 'anthropic').map((p) => (
               <option key={p} value={p}>
@@ -788,26 +1023,29 @@ export function LlmForm({
           </Select>
         </Field>
         <Field label={t('admin.model')}>
-          <Input
+          <ModelPicker
             value={v.model}
-            onChange={(e) => set({ model: e.target.value })}
-            placeholder={MODEL_HINT[v.provider]}
-            className="font-mono"
+            onChange={(model) => set({ model })}
+            provider={v.provider}
+            purpose={purpose}
+            apiKey={v.apiKey}
+            baseUrl={v.baseUrl}
+            placeholder={purpose === 'embedding' ? EMBED_MODEL_HINT[v.provider] : MODEL_HINT[v.provider]}
           />
         </Field>
         <Field label={t('admin.apiKey')} hint={existing?.hasKey ? t('admin.apiKeySet') : undefined}>
-          <Input
-            type="password"
+          <SecretInput
             value={v.apiKey}
-            onChange={(e) => set({ apiKey: e.target.value })}
-            autoComplete="off"
+            onChange={(apiKey) => set({ apiKey })}
+            hasStored={existing?.hasKey}
+            storedHint={existing?.keyHint}
           />
         </Field>
         <Field label={t('admin.baseUrl')} hint={t('common.optional')}>
           <Input
             value={v.baseUrl}
             onChange={(e) => set({ baseUrl: e.target.value })}
-            placeholder={v.provider === 'openai-compatible' ? 'http://ollama:11434/v1' : ''}
+            placeholder={BASE_URL_HINT[v.provider] ?? ''}
             className="font-mono"
           />
         </Field>
@@ -833,6 +1071,15 @@ export function LlmForm({
             </Field>
           </>
         )}
+        {purpose === 'judge' && STRUCTURED_OUTPUT_PROVIDERS.has(v.provider) && (
+          <div className="flex items-end">
+            <Switch
+              checked={v.structuredOutputs}
+              onCheckedChange={(structuredOutputs) => set({ structuredOutputs })}
+              label={t('admin.structuredOutputs')}
+            />
+          </div>
+        )}
         <div className="flex items-end">
           <Switch
             checked={v.enabled}
@@ -841,17 +1088,21 @@ export function LlmForm({
           />
         </div>
       </div>
-      <div className="flex items-center justify-end gap-2">
-        {testResult && <span className="mr-auto truncate text-[12.5px] text-muted">{testResult}</span>}
-        {purpose === 'judge' && existing && (
-          <Button icon={<Send className="h-3.5 w-3.5" />} onClick={test}>
-            {t('admin.testPrompt')}
-          </Button>
-        )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={testText}
+          onChange={(e) => setTestText(e.target.value)}
+          placeholder={purpose === 'judge' ? t('admin.testPromptPlaceholder') : t('admin.testEmbedText')}
+          className="min-w-0 flex-1 font-mono"
+        />
+        <Button icon={<Send className="h-3.5 w-3.5" />} loading={testing} disabled={!v.model} onClick={test}>
+          {t('admin.testPrompt')}
+        </Button>
         <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(undefined)}>
           {t('common.save')}
         </Button>
       </div>
+      {testResult && <p className="truncate text-[12.5px] text-muted">{testResult}</p>}
     </div>
   );
 }
@@ -865,6 +1116,7 @@ function VerificationTab() {
         name: string;
         url: string;
         hasSecret: boolean;
+        secretHint: string | null;
         timeoutMs: number;
         onError: string;
         enabled: boolean;
@@ -882,6 +1134,7 @@ function VerificationTab() {
     onError: string;
     enabled: boolean;
   } | null>(null);
+  // `timeoutMs` is no longer part of the form (the stored/default value is kept on save).
   const dv = d ?? {
     name: dm.data?.name ?? 'Decision model',
     url: dm.data?.url ?? '',
@@ -894,6 +1147,30 @@ function VerificationTab() {
     invalidate: [['admin-dm']],
     success: t('common.done'),
   });
+  const [dmResult, setDmResult] = useState<string | null>(null);
+  const [dmTesting, setDmTesting] = useState(false);
+  const testDm = async () => {
+    setDmTesting(true);
+    setDmResult('…');
+    try {
+      const r = await api.post<{
+        ok: boolean;
+        decision?: string;
+        reasons?: string[];
+        error?: string;
+        latencyMs: number;
+      }>('admin/decision-model/test', { url: dv.url || undefined, secret: dv.secret || undefined });
+      setDmResult(
+        !r.ok
+          ? `✗ ${r.error}`
+          : `✓ ${r.decision}${r.reasons?.[0] ? ` — ${r.reasons[0]}` : ''} (${r.latencyMs} ms)`,
+      );
+    } catch (err) {
+      setDmResult(`✗ ${errorMessage(err)}`);
+    } finally {
+      setDmTesting(false);
+    }
+  };
   const [rules, setRules] = useState<string | null>(null);
   const saveRules = useAction(() => api.put('admin/settings', { securityRules: rules ?? '' }), {
     invalidate: [['admin-settings']],
@@ -925,17 +1202,11 @@ function VerificationTab() {
             />
           </Field>
           <Field label={t('admin.secret')} hint={dm.data?.hasSecret ? t('admin.apiKeySet') : undefined}>
-            <Input
-              type="password"
+            <SecretInput
               value={dv.secret}
-              onChange={(e) => setD({ ...dv, secret: e.target.value })}
-            />
-          </Field>
-          <Field label={t('admin.timeout')}>
-            <Input
-              type="number"
-              value={dv.timeoutMs}
-              onChange={(e) => setD({ ...dv, timeoutMs: Number(e.target.value) })}
+              onChange={(secret) => setD({ ...dv, secret })}
+              hasStored={dm.data?.hasSecret}
+              storedHint={dm.data?.secretHint}
             />
           </Field>
           <Field label={t('admin.onError')}>
@@ -944,25 +1215,53 @@ function VerificationTab() {
               <option value="ignore">{t('admin.onErrorIgnore')}</option>
             </Select>
           </Field>
-          <div className="flex items-end justify-between gap-2">
-            <Switch
-              checked={dv.enabled}
-              onCheckedChange={(enabled) => setD({ ...dv, enabled })}
-              label={t('common.enabled')}
-            />
-            <Button
-              variant="primary"
-              disabled={!dv.url}
-              loading={saveDm.isPending}
-              onClick={() => saveDm.mutate(undefined)}
-            >
-              {t('common.save')}
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2 md:col-span-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Button
+                icon={<Send className="h-3.5 w-3.5" />}
+                disabled={!dv.url}
+                loading={dmTesting}
+                onClick={testDm}
+              >
+                {t('admin.sendTest')}
+              </Button>
+              {dmResult && <span className="min-w-0 truncate text-[12.5px] text-muted">{dmResult}</span>}
+            </div>
+            <div className="flex items-center gap-4">
+              <Switch
+                checked={dv.enabled}
+                onCheckedChange={(enabled) => setD({ ...dv, enabled })}
+                label={t('common.enabled')}
+              />
+              <Button
+                variant="primary"
+                disabled={!dv.url}
+                loading={saveDm.isPending}
+                onClick={() => saveDm.mutate(undefined)}
+              >
+                {t('common.save')}
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
       <Card>
-        <CardHeader title={t('admin.rules')} description={t('admin.rulesBody')} />
+        <CardHeader
+          title={t('admin.rules')}
+          description={
+            <>
+              {t('admin.rulesBody')}{' '}
+              <a
+                href={RULES_DOC_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent underline-offset-2 hover:underline"
+              >
+                {t('admin.rulesDocs')}
+              </a>
+            </>
+          }
+        />
         <div className="space-y-2 p-4">
           <Textarea
             rows={8}

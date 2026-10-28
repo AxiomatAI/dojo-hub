@@ -24,6 +24,7 @@ import {
   loadRulePack,
   minhash,
   NEAR_DUPLICATE_THRESHOLD,
+  runLlmOnly,
   runScan,
   type ScanConfig,
   SEMANTIC_DUPLICATE_THRESHOLD,
@@ -82,6 +83,103 @@ export async function buildScanConfig(ctx: AppContext, orgId: string): Promise<S
   return config;
 }
 
+/** How long an inline "run LLM verification" request may hold a provider connection. */
+const LLM_CHECK_TIMEOUT_MS = 120_000;
+
+/** True when an enabled "judge" model is configured for the org (LLM verification). */
+export async function hasJudgeConfig(ctx: AppContext, orgId: string): Promise<boolean> {
+  const [judge] = await ctx.db
+    .select({ id: llmConfig.id })
+    .from(llmConfig)
+    .where(and(eq(llmConfig.orgId, orgId), eq(llmConfig.purpose, 'judge'), eq(llmConfig.enabled, true)));
+  return !!judge;
+}
+
+/** Build the scan subject (skill content + previous approved version) for a version. */
+async function scanSubjectFor(ctx: AppContext, v: VersionRow) {
+  const [s] = await ctx.db.select().from(skill).where(eq(skill.id, v.skillId));
+  if (!s) throw new Error(`skill ${v.skillId} not found`);
+  const name = s.name;
+  const files = await loadVersionFiles(ctx, v.id);
+  const prev = await previousApprovedVersion(ctx, v);
+  return {
+    files,
+    prev,
+    input: {
+      name,
+      description: v.description,
+      frontmatter: v.frontmatter,
+      files,
+      version: v.version,
+      externalRefs: v.externalRefs,
+      previous: prev
+        ? {
+            name,
+            description: prev.description,
+            frontmatter: prev.frontmatter,
+            files: await loadVersionFiles(ctx, prev.id),
+            version: prev.version,
+          }
+        : undefined,
+    },
+  };
+}
+
+/**
+ * Run (or re-run) only the LLM judge for a version and store it as its `llm` scan row, then
+ * re-aggregate the version risk score. Leaves the version status and approvals untouched, so it
+ * works for approved versions scanned before the judge was configured.
+ */
+export async function runLlmCheck(ctx: AppContext, v: VersionRow): Promise<AnalyzerResult> {
+  const orgId = v.orgId;
+  const cfg = await buildScanConfig(ctx, orgId);
+  const { input } = await scanSubjectFor(ctx, v);
+  const startedAt = new Date();
+  // Bound the inline judge call so a stalled provider connection cannot hang the request.
+  const result = await runLlmOnly({ ...input, signal: AbortSignal.timeout(LLM_CHECK_TIMEOUT_MS) }, cfg);
+  await ctx.db.delete(scanRun).where(and(eq(scanRun.skillVersionId, v.id), eq(scanRun.analyzer, 'llm')));
+  await ctx.db.insert(scanRun).values({
+    orgId,
+    skillVersionId: v.id,
+    analyzer: 'llm',
+    status: result.status,
+    verdict:
+      result.verdict ??
+      (result.status === 'done'
+        ? result.findings.some((f) => ['high', 'critical'].includes(f.severity))
+          ? 'warn'
+          : 'pass'
+        : null),
+    riskScore: result.riskScore ?? null,
+    findings: result.findings,
+    report: result.report ?? null,
+    model: result.model ?? null,
+    tokens: result.tokens ?? null,
+    error: result.error ?? null,
+    startedAt,
+    finishedAt: new Date(),
+  });
+  // Re-aggregate the risk score from every stored analyzer result (the judge may add findings).
+  const rows = await ctx.db.select().from(scanRun).where(eq(scanRun.skillVersionId, v.id));
+  const verdict = aggregate(
+    rows.map((r) => ({
+      analyzer: r.analyzer,
+      status: r.status as AnalyzerResult['status'],
+      verdict: r.verdict as AnalyzerResult['verdict'],
+      riskScore: r.riskScore ?? undefined,
+      findings: r.findings,
+      report: r.report ?? undefined,
+      model: r.model ?? undefined,
+      error: r.error ?? undefined,
+    })),
+  );
+  await ctx.db
+    .update(skillVersion)
+    .set({ riskScore: verdict.riskScore, riskLevel: verdict.riskLevel })
+    .where(eq(skillVersion.id, v.id));
+  return result;
+}
+
 /** Worker job: scan a submitted version, detect duplicates, then apply the namespace policy. */
 export async function processScan(
   ctx: AppContext,
@@ -94,33 +192,13 @@ export async function processScan(
   await transition(ctx, v, 'scanning', null);
   const [s] = await ctx.db.select().from(skill).where(eq(skill.id, v.skillId));
   const [ns] = await ctx.db.select().from(namespace).where(eq(namespace.id, s!.namespaceId));
-  const files = await loadVersionFiles(ctx, v.id);
-  const prev = await previousApprovedVersion(ctx, v);
+  const { input, files, prev } = await scanSubjectFor(ctx, v);
   const policyDoc = await loadPolicy(ctx, orgId, ns!.id);
 
   let results: AnalyzerResult[];
   try {
     const cfg = await buildScanConfig(ctx, orgId);
-    results = await runScan(
-      {
-        name: s!.name,
-        description: v.description,
-        frontmatter: v.frontmatter,
-        files,
-        version: v.version,
-        externalRefs: v.externalRefs,
-        previous: prev
-          ? {
-              name: s!.name,
-              description: prev.description,
-              frontmatter: prev.frontmatter,
-              files: await loadVersionFiles(ctx, prev.id),
-              version: prev.version,
-            }
-          : undefined,
-      },
-      cfg,
-    );
+    results = await runScan(input, cfg);
   } catch (err) {
     ctx.logger.error({ err, versionId }, 'scan failed');
     results = [{ analyzer: 'pipeline', status: 'error', findings: [], error: (err as Error).message }];

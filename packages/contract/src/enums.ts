@@ -100,6 +100,7 @@ export const LLM_PROVIDERS = [
   'azure',
   'bedrock',
   'google',
+  'openrouter',
   'openai-compatible',
 ] as const;
 export const llmProvider = z.enum(LLM_PROVIDERS);
