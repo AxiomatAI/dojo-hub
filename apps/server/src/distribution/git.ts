@@ -1,7 +1,8 @@
 import { execFile, spawn } from 'node:child_process';
 import { chmod, mkdir, mkdtemp, readdir, rename, rm, stat, utimes, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
+import { checkSafePaths } from '@dojohub/core';
 import { skillVersion } from '@dojohub/db';
 import { and, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -25,14 +26,31 @@ import {
 
 const exec = promisify(execFile);
 
-interface Snapshot {
+export interface Snapshot {
   /** Commits in order; each one fully replaces the tree. */
   commits: { tag?: string; message: string; date: Date; files: () => Promise<Map<string, Uint8Array>> }[];
 }
 
 const AUTHOR = { name: 'DojoHub', email: 'dojohub@localhost' };
 
+/**
+ * Stored paths were validated on ingestion; check again before touching the work tree so rows written
+ * by older releases (or any other path into the database) can never reach `.git` or escape `dir`.
+ */
+export function assertWritableTree(dir: string, paths: string[]) {
+  const issues = checkSafePaths(paths);
+  if (issues.length)
+    throw new Error(`Refusing to materialise unsafe paths: ${issues.map((i) => i.message).join('; ')}`);
+  const root = resolve(dir);
+  for (const path of paths) {
+    const rel = relative(root, resolve(root, path));
+    if (rel === '' || rel.startsWith(`..${sep}`) || rel === '..' || rel.split(sep)[0] === '.git')
+      throw new Error(`Refusing to materialise unsafe path: ${path}`);
+  }
+}
+
 async function writeTree(dir: string, files: Map<string, Uint8Array>) {
+  assertWritableTree(dir, [...files.keys()]);
   for (const entry of await readdir(dir))
     if (entry !== '.git') await rm(join(dir, entry), { recursive: true, force: true });
   for (const [path, bytes] of files) {
@@ -49,7 +67,7 @@ async function writeTree(dir: string, files: Map<string, Uint8Array>) {
  * (fixed author and publish timestamps), so every replica builds byte-identical repositories
  * and no shared volume is needed.
  */
-async function materialize(ctx: AppContext, key: string, snapshot: Snapshot): Promise<string> {
+export async function materialize(ctx: AppContext, key: string, snapshot: Snapshot): Promise<string> {
   const root = ctx.config.DOJO_GIT_CACHE_DIR;
   const target = join(root, key);
   try {
@@ -62,13 +80,35 @@ async function materialize(ctx: AppContext, key: string, snapshot: Snapshot): Pr
   }
   await mkdir(root, { recursive: true });
   const tmp = await mkdtemp(join(root, '.build-'));
-  const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', HOME: tmp };
+  // Never read config from the work tree (HOME used to be `tmp`, so a published `.gitconfig` was
+  // global config) and never run hooks or fsmonitor commands: skill content must stay inert.
+  const env = {
+    ...process.env,
+    GIT_CONFIG_NOSYSTEM: '1',
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_TERMINAL_PROMPT: '0',
+    HOME: root,
+  };
   const git = (args: string[], extra: Record<string, string> = {}) =>
-    exec('git', ['-C', tmp, '-c', 'core.autocrlf=false', '-c', 'core.fileMode=true', ...args], {
-      env: { ...env, ...extra },
-    });
+    exec(
+      'git',
+      [
+        '-C',
+        tmp,
+        '-c',
+        'core.hooksPath=/dev/null',
+        '-c',
+        'core.fsmonitor=false',
+        '-c',
+        'core.autocrlf=false',
+        '-c',
+        'core.fileMode=true',
+        ...args,
+      ],
+      { env: { ...env, ...extra } },
+    );
   try {
-    await git(['init', '-q', '-b', 'main']);
+    await git(['init', '-q', '-b', 'main', '--template=']);
     for (const commit of snapshot.commits) {
       await writeTree(tmp, await commit.files());
       await git(['add', '-A']);

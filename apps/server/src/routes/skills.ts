@@ -313,9 +313,7 @@ export function skillRoutes() {
     async ({ ctx, actor, orgId, body }) => {
       const ns = await getNamespace(ctx, orgId, body.namespace);
       if (!canSubmitTo(actor, ns)) throw forbidden('You cannot submit skills to this namespace');
-      const files: FileMap = new Map(
-        Object.entries(body.files).map(([p, t]) => [p.replace(/^\/+/, ''), utf8.encode(t)]),
-      );
+      const files: FileMap = new Map(Object.entries(body.files).map(([p, t]) => [p, utf8.encode(t)]));
       const res = await ingestVersion(ctx, {
         orgId,
         ns,

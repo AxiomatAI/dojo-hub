@@ -47,8 +47,8 @@ export const groupMappingBody = z.object({
 
 export const createSkillBody = z.object({
   namespace: z.string(),
-  /** Files as path → UTF-8 text (in-browser authoring). */
-  files: z.record(z.string(), z.string()),
+  /** Files as path → UTF-8 text (in-browser authoring). Paths are fully validated on ingestion. */
+  files: z.record(z.string().min(1).max(1024), z.string()),
   version: z.string().optional(),
   changelog: z.string().max(5000).optional(),
   submit: z.boolean().default(true),
