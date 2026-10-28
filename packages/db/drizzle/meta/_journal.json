@@ -15,6 +15,13 @@
       "when": 1793133081626,
       "tag": "0001_init",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793141893497,
+      "tag": "0002_boring_tomorrow_man",
+      "breakpoints": true
     }
   ]
 }

@@ -88,6 +88,7 @@ export function createApp(ctx: AppContext) {
   app.use('/api/*', secureHeaders());
   app.use('/api/v1/skills/upload', bodyLimit({ maxSize: 60 * 1024 * 1024 }));
   app.use('/api/v1/sources/*', bodyLimit({ maxSize: 210 * 1024 * 1024 }));
+  app.use('/api/v1/admin/org/icon', bodyLimit({ maxSize: 2 * 1024 * 1024 + 64 * 1024 }));
 
   const v1 = new Api();
   for (const r of [
