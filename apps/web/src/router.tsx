@@ -54,28 +54,50 @@ const app = createRoute({
         queryFn: () => api.get<Me>('me'),
         staleTime: 60_000,
       });
-      return { me };
+      return { me, orgName: me.orgName ?? null };
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         const status = await api.get<SetupStatus>('setup/status').catch(() => null);
         if (status?.needsSetup) throw redirect({ to: '/setup', search: { token: undefined } });
+        // Network-gated installs ("serve internal skills without a token") expose the catalog
+        // read-only to anonymous visitors instead of bouncing them to the login form.
+        if (status?.anonymousBrowsing) return { me: null, orgName: status.orgName };
         throw redirect({ to: '/login', search: { redirect: location.href, error: undefined } });
       }
       throw err;
     }
   },
   component: function AppLayout() {
-    const { me } = app.useRouteContext();
-    return <AppShell me={me} />;
+    const { me, orgName } = app.useRouteContext();
+    return <AppShell me={me} orgName={orgName} />;
   },
 });
+
+type RouteOptions = {
+  /** Reachable without a session when the catalog is served anonymously. */
+  guest?: boolean;
+};
 
 const r = <P extends string>(
   path: P,
   component: () => React.ReactNode,
   search?: (s: Record<string, unknown>) => Record<string, unknown>,
+  options?: RouteOptions,
 ) =>
-  createRoute({ getParentRoute: () => app, path, component, ...(search ? { validateSearch: search } : {}) });
+  createRoute({
+    getParentRoute: () => app,
+    path,
+    component,
+    ...(search ? { validateSearch: search } : {}),
+    beforeLoad: options?.guest
+      ? undefined
+      : ({ context, location }) => {
+          if (context.me) return;
+          // Anonymous browsing only exposes the catalog; the rest of the app needs a session.
+          if (location.pathname === '/') throw redirect({ to: '/skills' });
+          throw redirect({ to: '/login', search: { redirect: location.href, error: undefined } });
+        },
+  });
 
 const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
 
@@ -84,21 +106,26 @@ const routeTree = root.addChildren([
   setup,
   app.addChildren([
     r('/', HomePage),
-    r('/skills', SkillsPage, (s) => ({
-      q: str(s.q),
-      team: str(s.team),
-      status: str(s.status),
-      risk: str(s.risk),
-      sort: str(s.sort),
-      mine: s.mine === true || s.mine === 'true' ? true : undefined,
-    })),
-    r('/skills/$name', SkillDetailPage, (s) => ({ tab: str(s.tab) })),
-    r('/skills/$name/versions/$version', VersionPage, (s) => ({ file: str(s.file) })),
+    r(
+      '/skills',
+      SkillsPage,
+      (s) => ({
+        q: str(s.q),
+        team: str(s.team),
+        status: str(s.status),
+        risk: str(s.risk),
+        sort: str(s.sort),
+        mine: s.mine === true || s.mine === 'true' ? true : undefined,
+      }),
+      { guest: true },
+    ),
+    r('/skills/$name', SkillDetailPage, (s) => ({ tab: str(s.tab) }), { guest: true }),
+    r('/skills/$name/versions/$version', VersionPage, (s) => ({ file: str(s.file) }), { guest: true }),
     r('/skills/$name/diff', SkillDiffPage, (s) => ({ from: str(s.from), to: str(s.to) })),
-    r('/suites', SuitesPage),
-    r('/suites/$ns/$name', SuiteDetailPage),
-    r('/teams', TeamsPage),
-    r('/teams/$slug', TeamDetailPage, (s) => ({ tab: str(s.tab) })),
+    r('/suites', SuitesPage, undefined, { guest: true }),
+    r('/suites/$ns/$name', SuiteDetailPage, undefined, { guest: true }),
+    r('/teams', TeamsPage, undefined, { guest: true }),
+    r('/teams/$slug', TeamDetailPage, (s) => ({ tab: str(s.tab) }), { guest: true }),
     r('/submit', SubmitPage, (s) => ({
       mode: str(s.mode),
       skill: str(s.skill),

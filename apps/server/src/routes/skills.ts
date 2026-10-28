@@ -37,7 +37,12 @@ import {
   isSecurityReviewer,
 } from '../auth/permissions';
 import type { AppContext } from '../context';
-import { anonymousAllowed, installCommands } from '../distribution/resolve';
+import {
+  anonymousAllowed,
+  anonymousInternalEnabled,
+  anonymousReadable,
+  installCommands,
+} from '../distribution/resolve';
 import { Api } from '../lib/api';
 import { AppError, badRequest, forbidden, notFound } from '../lib/errors';
 import { cancelOpenRequests } from '../services/approvals';
@@ -77,7 +82,16 @@ export function canSeeSkill(actor: Actor, row: Row): boolean {
   );
 }
 
-export async function loadSkill(ctx: AppContext, actor: Actor, orgId: string, name: string): Promise<Row> {
+/**
+ * Load a skill for a caller that may be anonymous (`public` operations). Without credentials only
+ * installable skills in anonymously readable namespaces exist — unpublished drafts are never exposed.
+ */
+export async function loadSkill(
+  ctx: AppContext,
+  actor: Actor | null,
+  orgId: string,
+  name: string,
+): Promise<Row> {
   const [row] = await ctx.db
     .select({ skill, namespace })
     .from(skill)
@@ -85,8 +99,22 @@ export async function loadSkill(ctx: AppContext, actor: Actor, orgId: string, na
     .where(
       and(eq(skill.orgId, orgId), or(eq(skill.name, name), eq(skill.id, name)), isNull(skill.archivedAt)),
     );
-  if (!row || !canSeeSkill(actor, row)) throw notFound('Skill');
+  if (!row) throw notFound('Skill');
+  if (!actor) {
+    if (!row.skill.publishedVersionId || !(await anonymousAllowed(ctx, row.namespace)))
+      throw notFound('Skill');
+    return row;
+  }
+  if (!canSeeSkill(actor, row)) throw notFound('Skill');
   return row;
+}
+
+/**
+ * Anonymous callers only ever see versions the distribution endpoints would hand out: unpublished
+ * drafts, review state and scan output stay behind a session.
+ */
+function limitAnonymousVersion(actor: Actor | null, v: { status: string }) {
+  if (!actor && !['approved', 'deprecated'].includes(v.status)) throw notFound('Version');
 }
 
 async function loadVersionRow(ctx: AppContext, skillId: string, version: string) {
@@ -133,7 +161,14 @@ export function skillRoutes() {
   const api = new Api();
 
   api.op(
-    { method: 'get', path: '/skills', summary: 'List and search skills', tags: ['Skills'], query: listQuery },
+    {
+      method: 'get',
+      path: '/skills',
+      summary: 'List and search skills',
+      tags: ['Skills'],
+      query: listQuery,
+      public: true,
+    },
     async ({ ctx, actor, orgId, query }) => {
       const conds = [eq(skill.orgId, orgId), isNull(skill.archivedAt)];
       if (query.q) {
@@ -152,7 +187,7 @@ export function skillRoutes() {
       if (query.risk) conds.push(inArray(skill.riskLevel, query.risk.split(',') as never[]));
       if (query.category) conds.push(eq(skill.category, query.category));
       if (query.source) conds.push(eq(skill.sourceId, query.source));
-      if (query.mine) conds.push(eq(skill.ownerId, actor.userId));
+      if (query.mine && actor) conds.push(eq(skill.ownerId, actor.userId));
       if (query.team) {
         const ns = await getNamespace(ctx, orgId, query.team);
         const ids = (
@@ -188,14 +223,20 @@ export function skillRoutes() {
           : query.sort === 'name'
             ? skill.name
             : desc(skill.updatedAt);
-      const rows = (
-        await ctx.db
-          .select({ skill, namespace })
-          .from(skill)
-          .innerJoin(namespace, eq(namespace.id, skill.namespaceId))
-          .where(and(...conds))
-          .orderBy(order)
-      ).filter((r) => canSeeSkill(actor, r));
+      const matched = await ctx.db
+        .select({ skill, namespace })
+        .from(skill)
+        .innerJoin(namespace, eq(namespace.id, skill.namespaceId))
+        .where(and(...conds))
+        .orderBy(order);
+      // Anonymous callers get exactly what the distribution endpoints would hand out: installable
+      // skills in namespaces served without a token.
+      const internalEnabled = actor ? false : await anonymousInternalEnabled(ctx, orgId);
+      const rows = matched.filter((r) =>
+        actor
+          ? canSeeSkill(actor, r)
+          : !!r.skill.publishedVersionId && anonymousReadable(r.namespace, internalEnabled),
+      );
       const page = rows.slice((query.page - 1) * query.pageSize, query.page * query.pageSize);
       return {
         items: await toSkillSummaries(ctx, page),
@@ -212,13 +253,18 @@ export function skillRoutes() {
       path: '/skills/:name',
       summary: 'Get a skill with its version history',
       tags: ['Skills'],
+      public: true,
     },
     async ({ ctx, actor, orgId, params }) => {
       const row = await loadSkill(ctx, actor, orgId, params.name!);
       const [summary] = await toSkillSummaries(ctx, [row]);
-      const versions = (
+      const allVersions = (
         await ctx.db.select().from(skillVersion).where(eq(skillVersion.skillId, row.skill.id))
       ).sort((a, b) => semver.rcompare(a.version, b.version));
+      // Anonymous browsing mirrors the catalog: installable versions only, no authorship.
+      const versions = actor
+        ? allVersions
+        : allVersions.filter((v) => ['approved', 'deprecated'].includes(v.status));
       const users = await usersById(ctx, [...versions.map((v) => v.submittedBy), row.skill.ownerId]);
       const [src] = row.skill.sourceId
         ? await ctx.db.select().from(source).where(eq(source.id, row.skill.sourceId))
@@ -237,7 +283,7 @@ export function skillRoutes() {
         );
       const detail: SkillDetailDto = {
         ...summary!,
-        owner: row.skill.ownerId ? (users.get(row.skill.ownerId) ?? null) : null,
+        owner: actor && row.skill.ownerId ? (users.get(row.skill.ownerId) ?? null) : null,
         upstreamPath: row.skill.upstreamPath,
         upstreamRemoved: row.skill.upstreamRemoved,
         source: src ? { id: src.id, name: src.name, url: src.url, kind: src.kind } : null,
@@ -248,8 +294,8 @@ export function skillRoutes() {
           { kind: 'skill', ns: row.namespace.slug, name: row.skill.name },
           await anonymousAllowed(ctx, row.namespace),
         ),
-        canEdit: canManageNamespace(actor, row.namespace) || row.skill.ownerId === actor.userId,
-        canReview: isSecurityReviewer(actor) || canManageNamespace(actor, row.namespace),
+        canEdit: !!actor && (canManageNamespace(actor, row.namespace) || row.skill.ownerId === actor.userId),
+        canReview: !!actor && (isSecurityReviewer(actor) || canManageNamespace(actor, row.namespace)),
       };
       return detail;
     },
@@ -445,10 +491,12 @@ export function skillRoutes() {
       path: '/skills/:name/versions/:version',
       summary: 'Version detail: files, scans, duplicates and review',
       tags: ['Skills'],
+      public: true,
     },
     async ({ ctx, actor, orgId, params }) => {
       const row = await loadSkill(ctx, actor, orgId, params.name!);
       const v = await loadVersionRow(ctx, row.skill.id, params.version!);
+      limitAnonymousVersion(actor, v);
       const users = await usersById(ctx, [v.submittedBy]);
       const files = await ctx.db
         .select()
@@ -500,9 +548,10 @@ export function skillRoutes() {
         duplicates: dups,
         review: review ?? null,
         canSubmit:
+          !!actor &&
           ['draft', 'rejected'].includes(v.status) &&
           (v.submittedBy === actor.userId || canManageNamespace(actor, row.namespace)),
-        canManage: canManageNamespace(actor, row.namespace) || isSecurityReviewer(actor),
+        canManage: !!actor && (canManageNamespace(actor, row.namespace) || isSecurityReviewer(actor)),
       };
     },
   );
@@ -513,10 +562,12 @@ export function skillRoutes() {
       path: '/skills/:name/versions/:version/files/*',
       summary: 'Read a file of a version',
       tags: ['Skills'],
+      public: true,
     },
     async ({ c, ctx, actor, orgId, params }) => {
       const row = await loadSkill(ctx, actor, orgId, params.name!);
       const v = await loadVersionRow(ctx, row.skill.id, params.version!);
+      limitAnonymousVersion(actor, v);
       const path = decodeURIComponent(c.req.path.split('/files/').slice(1).join('/files/'));
       const [f] = await ctx.db
         .select()
@@ -544,6 +595,7 @@ export function skillRoutes() {
       path: '/skills/:name/versions/:version/download',
       summary: 'Download a version as tar.gz',
       tags: ['Skills'],
+      public: true,
       query: z.object({
         channel: z.enum(['cli', 'web', 'api', 'mcp']).default('api'),
         update: z.string().optional(),
@@ -556,9 +608,10 @@ export function skillRoutes() {
       if (
         !installable &&
         !(
-          canManageNamespace(actor, row.namespace) ||
-          isSecurityReviewer(actor) ||
-          v.submittedBy === actor.userId
+          actor &&
+          (canManageNamespace(actor, row.namespace) ||
+            isSecurityReviewer(actor) ||
+            v.submittedBy === actor.userId)
         )
       ) {
         throw forbidden('This version is not published');
@@ -571,7 +624,7 @@ export function skillRoutes() {
           skillId: row.skill.id,
           skillVersionId: v.id,
           namespaceId: row.namespace.id,
-          actorId: actor.userId,
+          actorId: actor?.userId ?? null,
           isUpdate: query.update === '1',
         });
       }

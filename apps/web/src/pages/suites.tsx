@@ -4,12 +4,14 @@ import { Link, useParams } from '@tanstack/react-router';
 import { Boxes, ExternalLink, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { InstallMenu, SkillGlyph, StatusPill } from '../components/dojo';
+import { useOptionalMe } from '../components/shell';
 import { Badge, Card, CardHeader, EmptyState, PageHeader, Skeleton } from '../components/ui';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
 
 export function SuitesPage() {
   const { t } = useTranslation();
+  const me = useOptionalMe();
   const q = useQuery({ queryKey: ['suites'], queryFn: () => api.get<SuiteDto[]>('suites') });
   return (
     <div>
@@ -25,9 +27,15 @@ export function SuitesPage() {
             icon={<Boxes className="h-5 w-5" />}
             title={t('suites.empty')}
             action={
-              <Link to="/sources/new" search={{ preset: undefined, url: undefined }} className="text-accent">
-                {t('sources.new')} →
-              </Link>
+              me ? (
+                <Link
+                  to="/sources/new"
+                  search={{ preset: undefined, url: undefined }}
+                  className="text-accent"
+                >
+                  {t('sources.new')} →
+                </Link>
+              ) : undefined
             }
           />
         </Card>
