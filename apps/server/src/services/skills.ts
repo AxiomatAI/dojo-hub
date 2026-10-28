@@ -1,5 +1,6 @@
 import { INSTALLABLE_STATUSES, VERSION_TRANSITIONS, type VersionStatus } from '@dojohub/contract';
 import {
+  checkSafePaths,
   contentHash,
   createTarGz,
   type FileMap,
@@ -70,6 +71,10 @@ export async function ingestVersion(ctx: AppContext, input: IngestInput): Promis
   let total = 0;
   for (const b of files.values()) total += b.byteLength;
   if (total > MAX_TOTAL) throw new AppError(413, 'too_large', 'Skill exceeds the 50 MB size limit');
+  // Every ingestion route (JSON authoring, archives, source imports) funnels through here.
+  const pathIssues = checkSafePaths(files.keys());
+  if (pathIssues.length)
+    throw new AppError(422, 'unsafe_path', 'The skill contains unsafe file paths', pathIssues);
 
   if (input.renameTo) {
     const raw = files.get('SKILL.md');

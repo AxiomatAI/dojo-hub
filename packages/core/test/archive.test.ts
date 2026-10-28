@@ -2,6 +2,7 @@ import { zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
   ArchiveError,
+  checkSafePaths,
   contentHash,
   createTarGz,
   createZip,
@@ -50,5 +51,62 @@ describe('archives', () => {
     const lf = fileMapFromRecord({ 'SKILL.md': 'a\nb\n' });
     const crlf = fileMapFromRecord({ 'SKILL.md': 'a\r\nb\r\n' });
     expect(await contentHash(lf)).toBe(await contentHash(crlf));
+  });
+});
+
+describe('safe skill paths', () => {
+  const codes = (paths: string[]) => checkSafePaths(paths).map((i) => i.path);
+
+  it('accepts canonical nested skill layouts', () => {
+    expect(
+      checkSafePaths([
+        'SKILL.md',
+        'scripts/run.sh',
+        'references/api/guide.md',
+        'assets/logo.png',
+        '.gitignore',
+        '.github/workflows/ci.yml',
+        'scripts/.env.example',
+      ]),
+    ).toEqual([]);
+  });
+
+  it.each([
+    ['absolute', '/etc/passwd'],
+    ['double leading slash', '//SKILL.md'],
+    ['traversal', '../outside.sh'],
+    ['inner traversal', 'scripts/../../x'],
+    ['dot component', './SKILL.md'],
+    ['empty component', 'scripts//run.sh'],
+    ['trailing slash', 'scripts/'],
+    ['backslash', 'scripts\\..\\..\\x'],
+    ['drive letter', 'C:/Windows/x'],
+    ['NTFS stream', 'SKILL.md:evil'],
+    ['NUL', 'SKILL.md\u0000.png'],
+    ['newline', 'a\nb'],
+    ['git dir', '.git/hooks/pre-commit'],
+    ['nested git dir', 'scripts/.git/config'],
+    ['git case alias', '.GIT/hooks/post-commit'],
+    ['git trailing dot', '.git./hooks/pre-commit'],
+    ['git trailing space', '.git /config'],
+    ['git 8.3 alias', 'GIT~1/config'],
+    ['git HFS ignorable', '.g\u200cit/hooks/pre-commit'],
+    ['gitmodules', '.gitmodules'],
+    ['dots only', '...'],
+    ['empty', ''],
+  ])('rejects %s', (_, path) => {
+    expect(codes(['SKILL.md', path])).toEqual([path]);
+  });
+
+  it('rejects names that collide once normalised', () => {
+    expect(codes(['SKILL.md', 'skill.md'])).toEqual(['skill.md']);
+    expect(codes(['a/b.md', 'A/B.md.'])).toEqual(['A/B.md.']);
+    expect(codes(['caf\u00e9.md', 'cafe\u0301.md'])).toEqual(['cafe\u0301.md']);
+  });
+
+  it('rejects file/directory conflicts in either order', () => {
+    expect(codes(['scripts', 'scripts/run.sh'])).toEqual(['scripts/run.sh']);
+    expect(codes(['scripts/run.sh', 'scripts'])).toEqual(['scripts']);
+    expect(codes(['Scripts/run.sh', 'scripts'])).toEqual(['scripts']);
   });
 });
